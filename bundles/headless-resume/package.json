@@ -1,0 +1,16 @@
+{
+  "name": "dsh-bundle-headless-resume",
+  "description": "dsh bundle: replaces the stock headless one-shot runner with the --resume / --print-session-id variant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dsh-plugin-headless-resume": "file:../../packages/headless-resume"
+  }
+}

@@ -1,0 +1,22 @@
+# The headless-resume bundle: disable the stock one-shot pair and mount this
+# package's variant, which adds --resume and --print-session-id. Layer after
+# @deepseek-ai/dsh-headless in the profile's dsh.profile.bundles list.
+
+- id: headless-startup
+  disabled: true
+
+- id: headless-runner
+  disabled: true
+
+- insert:
+    - id: headless-resume-startup
+      name: dsh-plugin-headless-resume/startup
+
+    # Reads its task and session switches from the ordinary headlessStartup provider.
+    - id: headless-resume-runner
+      name: dsh-plugin-headless-resume
+      inject: [headlessStartup]
+      config:
+        task: !!js ctx.headlessStartup.task
+        resume: !!js ctx.headlessStartup.resume
+        printSessionId: !!js ctx.headlessStartup.printSessionId === true

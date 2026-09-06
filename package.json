@@ -1,0 +1,18 @@
+{
+  "name": "dsh-lavs-integration",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Out-of-tree DeepSeek Harness plugins: LAVS host adapter, Views tab, Tasks tab, headless-resume runner",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' run build",
+    "typecheck": "tsc -b packages/lavs-host packages/ui-lavs packages/ui-tasks packages/headless-resume",
+    "bundles:sync": "node scripts/install-profile.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "tsdown": "^0.12.9",
+    "typescript": "^5.9.2"
+  },
+  "packageManager": "pnpm@11.7.0"
+}
