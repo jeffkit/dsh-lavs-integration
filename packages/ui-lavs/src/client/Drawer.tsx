@@ -1,21 +1,20 @@
 /**
- * LAVS Views: second-level bundle tabs plus the iframe host surface.
+ * LAVS views drawer: a collapsible right-side panel hosting the bundle
+ * picker plus the iframe view surface. Opened from the session header's
+ * LAVS entry; renders above the conversation with no composer involvement.
  *
- * - Each viewable bundle gets its own inner tab (stays mounted; switching
- *   only flips display, so view state survives). High-frequency bundles can
- *   later be promoted to top-level tabs without changing this component.
- * - The spec §7.4 bridge rides window.message: `lavs-call` from any iframe
- *   forwards to the host adapter over the Connection RPC channel and the
- *   result/error posts back. Calls are scoped by the owning frame, so a
- *   message from bundle A never executes against bundle B.
- * - The `/lavs/events` SSE stream (an agent tool mutated a bundle on the
- *   host) fans out as `lavs-agent-action` into every mounted iframe, so
- *   views refresh when the agent — not the user — mutates data.
+ * - Bundle tabs stay mounted; switching only flips display so view state
+ *   survives.
+ * - The spec §7.4 postMessage bridge is scoped by the owning frame: a
+ *   `lavs-call` from bundle A never executes against bundle B.
+ * - `/lavs/events` SSE (agent/CLI mutations on the host) fans out as
+ *   `lavs-agent-action` into every mounted iframe, so views refresh when
+ *   data changes outside the view.
  */
 
 import { useEffect, useRef, useState } from 'react'
-import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import { createPortal } from 'react-dom'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 
 /** One bundle as `/lavs list` returns it. */
 export interface LavsBundleCard {
@@ -25,12 +24,6 @@ export interface LavsBundleCard {
   description: string | undefined
   hasView: boolean
   endpoints: Array<{ id: string; method: string; description: string | undefined }>
-}
-
-/** Host-injected handles (RPC forwards). */
-export interface ViewsViewInjected {
-  listBundles: () => Promise<LavsBundleCard[]>
-  forwardCall: (bundle: string, endpoint: string, input: unknown) => Promise<unknown>
 }
 
 interface LavsCallMessage {
@@ -59,28 +52,30 @@ interface AgentActionEvent {
   }
 }
 
-export function ViewsView({
-  listBundles, forwardCall, t,
-}: ConvViewProps & InjectFace<ViewsViewInjected> & PropsLocale<'lavs'>): JSX.Element {
-  const [bundles, setBundles] = useState<LavsBundleCard[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+/** One bundle as `/lavs list` returns it. */
+export interface LavsWithBundle {
+  name: string
+  contentType: string
+  version: string
+  description: string | undefined
+  hasView: boolean
+  endpoints: Array<{ id: string; method: string; description: string | undefined }>
+}
+
+export interface LavsWith {
+  bundles: LavsWithBundle[]
+  forwardCall: (bundle: string, endpoint: string, input: unknown) => Promise<unknown>
+  onClose: () => void
+}
+
+export function LavsDrawer({ bundles, forwardCall, onClose, t }: LavsWith & PropsLocale<'lavs'>): JSX.Element {
   const [selected, setSelected] = useState<string | null>(null)
   const frames = useRef(new Map<string, HTMLIFrameElement>())
+  const viewable = bundles.filter(b => b.hasView)
 
   useEffect(() => {
-    let alive = true
-    listBundles()
-      .then((list) => {
-        if (!alive) return
-        setBundles(list)
-        const first = list.find(b => b.hasView)
-        if (first !== undefined) setSelected(first.name)
-      })
-      .catch((e) => {
-        if (alive) setError(e instanceof Error ? e.message : String(e))
-      })
-    return () => { alive = false }
-  }, [listBundles])
+    if (selected === null && viewable.length > 0) setSelected(viewable[0]?.name ?? null)
+  }, [selected, viewable])
 
   // The postMessage bridge (spec §7.4), scoped by owning frame.
   useEffect(() => {
@@ -119,21 +114,65 @@ export function ViewsView({
     return () => { source.close() }
   }, [])
 
-  const viewable = bundles?.filter(b => b.hasView) ?? []
+  // Escape closes the drawer (click-outside would fight the iframes).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey) }
+  }, [onClose])
 
-  return (
-    <section
-      aria-label={t('view.lavs')}
+  return createPortal(
+    <aside
+      aria-label={t('drawer.title')}
       style={{
-        height: '100%',
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 'min(560px, 42vw)',
+        minWidth: 380,
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
         padding: '12px 16px',
         boxSizing: 'border-box',
+        background: 'color-mix(in srgb, canvas 96%, transparent)',
+        borderLeft: '1px solid color-mix(in srgb, currentColor 15%, transparent)',
+        boxShadow: '-12px 0 32px color-mix(in srgb, black 18%, transparent)',
+        zIndex: 60,
         fontFamily: 'inherit',
       }}
     >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <strong style={{ fontSize: 13 }}>{t('drawer.title')}</strong>
+        <span style={{ flex: 1 }} />
+        {selected !== null && (
+          <a
+            href={`/lavs-view/${selected}/view/index.html`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 12, color: 'inherit', opacity: 0.75 }}
+          >
+            {t('drawer.open.tab')}
+          </a>
+        )}
+        <button
+          type="button"
+          aria-label={t('drawer.close')}
+          title={t('drawer.close')}
+          onClick={onClose}
+          style={{
+            border: '1px solid color-mix(in srgb, currentColor 25%, transparent)',
+            background: 'transparent', color: 'inherit', cursor: 'pointer',
+            borderRadius: 6, padding: '2px 8px', fontSize: 12,
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
       <div role="tablist" aria-label={t('pick.bundle')} style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid color-mix(in srgb, currentColor 12%, transparent)', paddingBottom: 8 }}>
         {viewable.map(b => (
           <button
@@ -157,15 +196,6 @@ export function ViewsView({
           </button>
         ))}
       </div>
-
-      {error !== null && <p role="alert" style={{ margin: 0, color: '#d92d20', fontSize: 12 }}>{error}</p>}
-
-      {bundles !== null && viewable.length === 0 && error === null && (
-        <div style={{ padding: '32px 0', textAlign: 'center', opacity: 0.75 }}>
-          <p style={{ margin: '0 0 4px' }}>{t('empty.title')}</p>
-          <p style={{ margin: 0, fontSize: 12 }}>{t('empty.hint')}</p>
-        </div>
-      )}
 
       <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
         {viewable.map(b => (
@@ -192,7 +222,7 @@ export function ViewsView({
           />
         ))}
       </div>
-
-    </section>
+    </aside>,
+    document.body,
   )
 }

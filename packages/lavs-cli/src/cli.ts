@@ -50,7 +50,8 @@ interface BundleSchema {
 const USAGE = `lavs — Local Agent View Service CLI (thin client over the dsh lavs-host adapter)
 
 Usage:
-  lavs list [--preset <id>] [--json]         list visible bundles and endpoints
+  lavs list [--preset <id>] [--workspace <dir>] [--json]
+                                             list bundles visible to that scope
   lavs schema <bundle> [--json]              one bundle's endpoints with input schemas
   lavs call <bundle> <endpoint> [--input '<json>'] [--json]
                                              invoke an endpoint through the host
@@ -62,10 +63,11 @@ Discovery: --url/--token flags → LAVS_HOST_URL / LAVS_HOST_TOKEN env →
 
 class CliError extends Error {}
 
-function parseArgs(argv: string[]): { url: string; token: string; positional: string[]; flags: Set<string>; preset: string | undefined; input: string | undefined; json: boolean } {
+function parseArgs(argv: string[]): { url: string; token: string; positional: string[]; flags: Set<string>; preset: string | undefined; workspace: string | undefined; input: string | undefined; json: boolean } {
   let url: string | undefined
   let token: string | undefined
   let preset: string | undefined
+  let workspace: string | undefined
   let input: string | undefined
   const positional: string[] = []
   const flags = new Set<string>()
@@ -84,6 +86,11 @@ function parseArgs(argv: string[]): { url: string; token: string; positional: st
     if (arg === '--preset') {
       preset = argv[++i]
       if (preset === undefined) throw new CliError('--preset needs a value')
+      continue
+    }
+    if (arg === '--workspace') {
+      workspace = argv[++i]
+      if (workspace === undefined) throw new CliError('--workspace needs a directory')
       continue
     }
     if (arg === '--input') {
@@ -106,7 +113,7 @@ function parseArgs(argv: string[]): { url: string; token: string; positional: st
       throw new CliError(`no host discovery: ${discoveryPath} is missing and no --url/--token or env override given. Is a dsh web profile with the lavs bundle running?`)
     }
   }
-  return { url: url as string, token: token as string, positional, flags, preset, input, json: flags.has('json') }
+  return { url: url as string, token: token as string, positional, flags, preset, workspace, input, json: flags.has('json') }
 }
 
 async function request(url: string, token: string, path: string, body?: unknown): Promise<unknown> {
@@ -160,7 +167,10 @@ async function main(): Promise<number> {
     return 0
   }
   if (verb === 'list') {
-    const payload = await request(args.url, args.token, '/list', args.preset === undefined ? {} : { presetId: args.preset })
+    const payload = await request(args.url, args.token, '/list', {
+      ...(args.preset === undefined ? {} : { presetId: args.preset }),
+      ...(args.workspace === undefined ? {} : { workspaceCwd: args.workspace }),
+    })
     if (args.json) { console.log(JSON.stringify(payload, null, 2)); return 0 }
     printBundles(payload as BundleInfo[])
     return 0

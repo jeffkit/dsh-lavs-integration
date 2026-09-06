@@ -100,7 +100,7 @@ export interface LavsHostService {
    * @param presetId - the session's composed preset id (undefined shows
    *   base-root bundles only).
    */
-  list(presetId?: string): Promise<LavsBundleInfo[]>
+  list(presetId?: string, workspaceCwd?: string): Promise<LavsBundleInfo[]>
   /**
    * Invoke one manifest endpoint through its script handler. Every mutation
    * records an agent-action so mounted views refresh, whichever surface
@@ -159,8 +159,10 @@ const MIME: Record<string, string> = {
 interface BundleEntry {
   manifest: LAVSManifest
   dir: string
-  /** The preset id this bundle came from (undefined = a base root). */
+  /** The preset id this bundle came from (undefined = not preset-scoped). */
   sourcePreset?: string
+  /** The workspace cwd this bundle came from (undefined = not project-scoped). */
+  sourceWorkspace?: string
 }
 
 /** Adapt a raw manifest record to the browser-facing shape. */
@@ -277,9 +279,12 @@ export function apply(ctx: Context, config: Config): void {
   const baseRoots = (declared.length > 0 ? declared : ['bundles', join(homedir(), '.dsh', 'lavs-bundles')]).map(p => resolve(p))
   const extraRoots = new Set<string>()
   const rootToPreset = new Map<string, string>()
+  const rootToWorkspace = new Map<string, string>()
+  /** Workspace cwds probed and confirmed to carry NO project bundle dir. */
+  const absentWorkspaces = new Set<string>()
   const toolDisposers: Array<() => void> = []
 
-  const scanRoot = async (root: string, presetId?: string): Promise<void> => {
+  const scanRoot = async (root: string, presetId?: string, workspaceCwd?: string): Promise<void> => {
     let dirs: string[] = []
     try {
       dirs = (await readdir(root, { withFileTypes: true }))
@@ -292,11 +297,37 @@ export function apply(ctx: Context, config: Config): void {
       try {
         const manifest = await loader.load(join(root, dir, 'lavs.json')) as LAVSManifest
         const name = (manifest as unknown as { name: string }).name
-        bundles.set(name, { manifest, dir: join(root, dir), ...(presetId === undefined ? {} : { sourcePreset: presetId }) })
+        bundles.set(name, {
+          manifest, dir: join(root, dir),
+          ...(presetId === undefined ? {} : { sourcePreset: presetId }),
+          ...(workspaceCwd === undefined ? {} : { sourceWorkspace: workspaceCwd }),
+        })
       } catch (e) {
         ctx.logger.warn(`lavs-host: skipping bundle "${dir}": ${e instanceof Error ? e.message : String(e)}`)
       }
     }
+  }
+
+  /**
+   * Ensure the workspace's project-scoped root (`<cwd>/.lavs/bundles`) is
+   * scanned before the caller lists. Only CONFIRMED-ABSENT directories are
+   * remembered (one stat per project, ever); a present directory re-scans
+   * on every list so manifests added or fixed mid-session appear without a
+   * restart. Workspace bundles shadow preset/base bundles of the same name
+   * (the later scan wins the name-keyed map).
+   */
+  const ensureWorkspaceRoot = async (workspaceCwd: string): Promise<void> => {
+    if (absentWorkspaces.has(workspaceCwd)) return
+    const dir = join(workspaceCwd, '.lavs', 'bundles')
+    try {
+      await stat(dir)
+    } catch {
+      absentWorkspaces.add(workspaceCwd)
+      return
+    }
+    extraRoots.add(dir)
+    rootToWorkspace.set(dir, workspaceCwd)
+    await loadBundles()
   }
 
   const loadBundles = async (): Promise<void> => {
@@ -308,7 +339,7 @@ export function apply(ctx: Context, config: Config): void {
     bundles.clear()
     usedToolNames.clear()
     for (const root of baseRoots) await scanRoot(root)
-    for (const root of extraRoots) await scanRoot(root, rootToPreset.get(root))
+    for (const root of extraRoots) await scanRoot(root, rootToPreset.get(root), rootToWorkspace.get(root))
     ctx.logger.info(`lavs-host: loaded ${bundles.size} bundle(s) from ${baseRoots.length + extraRoots.size} root(s)`)
     for (const [bundleName, entry] of bundles) registerBundleTools(entry, bundleName)
   }
@@ -375,13 +406,17 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   const service: LavsHostService = {
-    async list(presetId?: string): Promise<LavsBundleInfo[]> {
+    async list(presetId?: string, workspaceCwd?: string): Promise<LavsBundleInfo[]> {
+      if (workspaceCwd !== undefined) await ensureWorkspaceRoot(workspaceCwd)
       if (bundles.size === 0) await loadBundles()
       const infos: LavsBundleInfo[] = []
       for (const entry of bundles.values()) {
-        // A preset-sourced bundle is visible only to sessions running that
-        // preset; base-root bundles are visible to every session.
+        // Scoped bundles are visible only to sessions in their scope:
+        // preset-sourced to sessions running that preset, workspace-sourced
+        // to sessions whose cwd is that project. Base roots are always
+        // visible (deployment-wide).
         if (entry.sourcePreset !== undefined && entry.sourcePreset !== presetId) continue
+        if (entry.sourceWorkspace !== undefined && entry.sourceWorkspace !== workspaceCwd) continue
         infos.push(toInfo(entry, await hasViewFile(entry)))
       }
       return infos
@@ -511,7 +546,10 @@ export function apply(ctx: Context, config: Config): void {
         if (req.method === 'POST' && (url.pathname === '/list' || url.pathname === '/call' || url.pathname === '/schema')) {
           const body = JSON.parse((await readBody(req)) || '{}') as Record<string, unknown>
           if (url.pathname === '/list') {
-            respond(200, await service.list(typeof body.presetId === 'string' ? body.presetId : undefined))
+            respond(200, await service.list(
+              typeof body.presetId === 'string' ? body.presetId : undefined,
+              typeof body.workspaceCwd === 'string' ? body.workspaceCwd : undefined,
+            ))
             return
           }
           if (url.pathname === '/schema') {
@@ -647,8 +685,14 @@ export function apply(ctx: Context, config: Config): void {
       async (endpoint: string, payload: unknown) => {
         try {
           if (endpoint === 'list') {
-            const p = payload as { presetId?: unknown }
-            return { ok: true, value: await service.list(typeof p?.presetId === 'string' ? p.presetId : undefined) }
+            const p = payload as { presetId?: unknown; workspaceCwd?: unknown }
+            return {
+              ok: true,
+              value: await service.list(
+                typeof p?.presetId === 'string' ? p.presetId : undefined,
+                typeof p?.workspaceCwd === 'string' ? p.workspaceCwd : undefined,
+              ),
+            }
           }
           if (endpoint === 'call') {
             const p = payload as { bundle?: unknown; endpoint?: unknown; input?: unknown }

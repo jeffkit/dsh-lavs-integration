@@ -8,7 +8,7 @@ DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless r
 | 包 | 类型 | 作用 |
 |----|------|------|
 | `packages/lavs-host` | host 插件 | 发现 lavs.json bundle、同源 serve `/lavs-view/<bundle>/…`、`/lavs` Connection RPC（list/call → lavs-runtime ScriptExecutor）、loopback CLI 端点（`~/.dsh/lavs-host.json` 发现文件）；`lavs_*` agent tools 为 **opt-in**（`registerAgentTools: true`），默认关闭 |
-| `packages/ui-lavs` | client 插件 | conversation.view 里的 "Views" tab：iframe 装载 LAVS bundle，postMessage 桥接 RPC；preset 感知的 bundle 可见性 |
+| `packages/ui-lavs` | client 插件 | 会话头部的 "视图" 入口按钮 + 右侧可收起抽屉：iframe 装载 LAVS bundle，postMessage 桥接 RPC；**数据驱动显隐**——按会话的 workspace/preset 作用域列出，无数据则入口整体不出现 |
 | `packages/ui-tasks` | client 插件 | conversation.view 里的 "Tasks" tab：todo 投影一等视图，交互走普通排队用户消息 |
 | `packages/headless-resume` | host 插件 | headless one-shot runner 变体：`--resume <session-id>` / `--print-session-id` |
 | `packages/lavs-cli` | CLI | `lavs list / schema / call` 三动词，零依赖薄客户端，经宿主 loopback 端点读写——**MCP 工具的上下文经济替代**（CLI + Skill 按场景加载，替代 N×M 常驻工具 schema） |
@@ -82,6 +82,17 @@ dsh --profile headless-rs --print-session-id "task"   # 捕获 stderr 的 sessio
 - [x] `/lavs-view/todo-list/view/index.html` → 200（lavs-host 仓外服务视图文件）
 - [x] **CLI 往返**：`lavs call todo-list addTodo` → listTodos 读回 → todos.json 落盘 ✓；
   mutation 经宿主记录 agent-action 并 SSE fan-out（视图自动刷新链路保持）
+- [x] **workspace 作用域**：`lavs list --workspace <dir>` 只见该项目的 `.lavs/bundles/`；
+  不带 workspace 不可见 ✓；workspace 视图文件 `/lavs-view/<bundle>/` 服务 200 ✓
 - [x] headless-rs profile：`--help` 显示我们的 `--resume`/`--print-session-id`，错误路径为我们代码
 - [x] 用户 patch 层热重载（曾用于跳过 onboarding 门）
-- [ ] 浏览器端 Views tab 点击级验证（被工作区选择的原生目录选择器挡住，需真人鼠标一次）
+- [ ] 浏览器端 header 按钮与抽屉的点击级验证（建会话需原生目录选择器，需真人一次；
+  自动化已验证到 /lavs-view 200 与 CLI 全链路）
+
+## 视图作用域语义（v2 UX）
+
+- **三级作用域**：workspace（`<项目>/.lavs/bundles/`）＞ preset（`<preset>/lavs-bundles/`）＞
+  base（部署级 bundlesDir）；同名按此顺序遮蔽
+- **入口即数据**：会话头部"视图"按钮只在当前会话作用域内存在可渲染 bundle 时出现；
+  打开为右侧抽屉（Esc/✕ 收起，"整页打开"直链 `/lavs-view/<bundle>/`）
+- 彻底脱离 `conversation.view` tab——不再有 tab 下的 composer 问题
