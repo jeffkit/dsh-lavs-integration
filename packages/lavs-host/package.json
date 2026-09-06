@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-lavs-host",
-  "description": "LAVS host adapter for DeepSeek Harness: discovers lavs.json view bundles, serves them same-origin for the iframe bridge, and exposes list/call on the /lavs Connection channel",
+  "description": "LAVS host adapter for DeepSeek Harness: discovers lavs.json view bundles, serves them same-origin for the iframe bridge, exposes list/call on the /lavs Connection channel plus a loopback CLI endpoint",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,19 +18,15 @@
     "lavs-runtime": "^0.2.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-agent-presets": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-connection": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-host-webserver": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-tools": "^0.1.2-rc.1",
-    "@deepseek-ai/schemastery": "^3.18.2"
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-agent-presets": "*",
+    "@deepseek-ai/dsh-client-connection": "*",
+    "@deepseek-ai/dsh-host-webserver": "*",
+    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/schemastery": "*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis",
-    "@deepseek-ai/dsh-agent-presets": "link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/preset/agent-presets",
-    "@deepseek-ai/dsh-client-connection": "link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/connection",
-    "@deepseek-ai/dsh-host-webserver": "link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/host/webserver",
-    "@deepseek-ai/dsh-tools": "link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/tools",
+    "@deepseek-ai/cordis": "^4.0.2",
     "@deepseek-ai/schemastery": "^3.18.2",
     "tsdown": "^0.12.9",
     "typescript": "^5.9.2"

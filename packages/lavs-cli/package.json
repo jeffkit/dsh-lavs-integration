@@ -1,0 +1,25 @@
+{
+  "name": "dsh-plugin-lavs-cli",
+  "description": "lavs CLI: agent-facing thin client over the running lavs-host adapter (list/schema/call) — context-cheap alternative to registered MCP tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "lavs": "lib/cli.js"
+  },
+  "main": "lib/cli.js",
+  "exports": {
+    ".": "./lib/cli.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "tsdown": "^0.12.9",
+    "typescript": "^5.9.2"
+  }
+}

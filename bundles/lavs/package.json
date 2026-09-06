@@ -11,6 +11,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "dsh-plugin-lavs-cli": "file:../../packages/lavs-cli",
     "dsh-plugin-lavs-host": "file:../../packages/lavs-host",
     "dsh-plugin-ui-lavs": "file:../../packages/ui-lavs",
     "dsh-plugin-ui-tasks": "file:../../packages/ui-tasks"

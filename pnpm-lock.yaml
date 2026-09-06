@@ -1,7 +1,7 @@
 lockfileVersion: '9.0'
 
 settings:
-  autoInstallPeers: true
+  autoInstallPeers: false
   excludeLinksFromLockfile: false
 
 importers:
@@ -21,19 +21,22 @@ importers:
   bundles/headless-resume:
     dependencies:
       dsh-plugin-headless-resume:
-        specifier: workspace:*
+        specifier: file:../../packages/headless-resume
         version: link:../../packages/headless-resume
 
   bundles/lavs:
     dependencies:
+      dsh-plugin-lavs-cli:
+        specifier: file:../../packages/lavs-cli
+        version: link:../../packages/lavs-cli
       dsh-plugin-lavs-host:
-        specifier: workspace:*
+        specifier: file:../../packages/lavs-host
         version: link:../../packages/lavs-host
       dsh-plugin-ui-lavs:
-        specifier: workspace:*
+        specifier: file:../../packages/ui-lavs
         version: link:../../packages/ui-lavs
       dsh-plugin-ui-tasks:
-        specifier: workspace:*
+        specifier: file:../../packages/ui-tasks
         version: link:../../packages/ui-tasks
 
   packages/headless-resume:
@@ -43,35 +46,23 @@ importers:
         version: 15.0.0
     devDependencies:
       '@deepseek-ai/cordis':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
+        specifier: ^4.0.2
+        version: 4.0.2(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@deepseek-ai/cordis-plugin-loader':
         specifier: ^1.0.3
-        version: 1.0.3(@deepseek-ai/cordis@deepseek-harness+.worktrees+rebase-rehearsal+vendor+cordis)
-      '@deepseek-ai/dsh-agent':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/agent
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/agent
-      '@deepseek-ai/dsh-agent-default-model':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/agent-default-model
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/agent-default-model
-      '@deepseek-ai/dsh-brand':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/brand
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/brand
-      '@deepseek-ai/dsh-cmdline':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/boot/cmdline
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/boot/cmdline
-      '@deepseek-ai/dsh-llm':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/llm/llm
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/llm/llm
-      '@deepseek-ai/dsh-session':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/session
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/session
-      '@deepseek-ai/dsh-util-values':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/values
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/values
+        version: 1.0.3(@deepseek-ai/cordis@4.0.2)
       '@deepseek-ai/schemastery':
         specifier: ^3.18.2
         version: 3.18.2
+      tsdown:
+        specifier: ^0.12.9
+        version: 0.12.9(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
+  packages/lavs-cli:
+    devDependencies:
       '@types/node':
         specifier: ^22.20.0
         version: 22.20.1
@@ -86,23 +77,11 @@ importers:
     dependencies:
       lavs-runtime:
         specifier: ^0.2.0
-        version: 0.2.0(zod@4.5.4)
+        version: 0.2.0
     devDependencies:
       '@deepseek-ai/cordis':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
-      '@deepseek-ai/dsh-agent-presets':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/preset/agent-presets
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/preset/agent-presets
-      '@deepseek-ai/dsh-client-connection':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/connection
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/connection
-      '@deepseek-ai/dsh-host-webserver':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/host/webserver
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/host/webserver
-      '@deepseek-ai/dsh-tools':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/tools
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/tools
+        specifier: ^4.0.2
+        version: 4.0.2(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@deepseek-ai/schemastery':
         specifier: ^3.18.2
         version: 3.18.2
@@ -116,38 +95,8 @@ importers:
   packages/ui-lavs:
     devDependencies:
       '@deepseek-ai/cordis':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
-      '@deepseek-ai/dsh-api-remotes':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/api/remotes
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/api/remotes
-      '@deepseek-ai/dsh-brand':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/brand
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/brand
-      '@deepseek-ai/dsh-client-connection':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/connection
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/connection
-      '@deepseek-ai/dsh-client-locale':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/locale
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/locale
-      '@deepseek-ai/dsh-client-store':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/store
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/store
-      '@deepseek-ai/dsh-client-ui-conversation':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-conversation
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-conversation
-      '@deepseek-ai/dsh-client-ui-renderer':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-renderer
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-renderer
-      '@deepseek-ai/dsh-client-ui-session':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-session
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-session
-      '@deepseek-ai/dsh-client-ui-slots':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-slots
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-slots
-      '@deepseek-ai/dsh-invariants':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/runtime-diagnostics/invariants
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/runtime-diagnostics/invariants
+        specifier: ^4.0.2
+        version: 4.0.2(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@types/react':
         specifier: ~18.3.1
         version: 18.3.31
@@ -164,35 +113,8 @@ importers:
   packages/ui-tasks:
     devDependencies:
       '@deepseek-ai/cordis':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
-      '@deepseek-ai/dsh-api-remotes':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/api/remotes
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/api/remotes
-      '@deepseek-ai/dsh-brand':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/brand
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/brand
-      '@deepseek-ai/dsh-client-locale':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/locale
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/locale
-      '@deepseek-ai/dsh-client-store':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/store
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/store
-      '@deepseek-ai/dsh-client-ui-conversation':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-conversation
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-conversation
-      '@deepseek-ai/dsh-client-ui-renderer':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-renderer
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-renderer
-      '@deepseek-ai/dsh-client-ui-session':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-session
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-session
-      '@deepseek-ai/dsh-client-ui-slots':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-slots
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-slots
-      '@deepseek-ai/dsh-invariants':
-        specifier: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/runtime-diagnostics/invariants
-        version: link:../../../deepseek-harness/.worktrees/rebase-rehearsal/packages/runtime-diagnostics/invariants
+        specifier: ^4.0.2
+        version: 4.0.2(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@types/react':
         specifier: ~18.3.1
         version: 18.3.31
@@ -238,6 +160,18 @@ packages:
       node-addon-require-builtin:
         optional: true
 
+  '@deepseek-ai/cordis@4.0.2':
+    resolution: {integrity: sha512-asOnXP1TzFSFQlHb1iegDZp0z/8WD1c7YNrwJR/Tx2bzNuMXfcekE/I67Iv6SQXeLB4csxqCngzQKANP7gdw0g==}
+    hasBin: true
+    peerDependencies:
+      '@deepseek-ai/cordis-plugin-include': ^1.0.7
+      '@deepseek-ai/cordis-plugin-loader': ^1.0.3
+    peerDependenciesMeta:
+      '@deepseek-ai/cordis-plugin-include':
+        optional: true
+      '@deepseek-ai/cordis-plugin-loader':
+        optional: true
+
   '@deepseek-ai/cosmokit@1.8.3':
     resolution: {integrity: sha512-qBo+ronVM6Eu2WNVJXi8JcMiqZ19T9BRIpV+5qJUFPXjGH/Z0QKcQMC/IZJ7L394YTOtJgcovbk9qP0w2GsBXQ==}
 
@@ -268,7 +202,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
-      zod: ^3.25 || ^4.0
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
@@ -396,11 +329,6 @@ packages:
 
   ajv-formats@3.0.1:
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
-    peerDependencies:
-      ajv: ^8.0.0
-    peerDependenciesMeta:
-      ajv:
-        optional: true
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
@@ -949,10 +877,17 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@deepseek-ai/cordis-plugin-loader@1.0.3(@deepseek-ai/cordis@deepseek-harness+.worktrees+rebase-rehearsal+vendor+cordis)':
+  '@deepseek-ai/cordis-plugin-loader@1.0.3(@deepseek-ai/cordis@4.0.2)':
     dependencies:
-      '@deepseek-ai/cordis': link:../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis
+      '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@deepseek-ai/cosmokit': 1.8.3
+
+  '@deepseek-ai/cordis@4.0.2(@deepseek-ai/cordis-plugin-loader@1.0.3)':
+    dependencies:
+      '@deepseek-ai/cosmokit': 1.8.3
+      '@standard-schema/spec': 1.1.0
+    optionalDependencies:
+      '@deepseek-ai/cordis-plugin-loader': 1.0.3(@deepseek-ai/cordis@4.0.2)
 
   '@deepseek-ai/cosmokit@1.8.3': {}
 
@@ -979,11 +914,11 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@modelcontextprotocol/sdk@1.30.0(zod@4.5.4)':
+  '@modelcontextprotocol/sdk@1.30.0':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.7)
       ajv: 8.20.0
-      ajv-formats: 3.0.1(ajv@8.20.0)
+      ajv-formats: 3.0.1
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
@@ -1072,8 +1007,8 @@ snapshots:
       mime-types: 3.0.2
       negotiator: 1.1.0
 
-  ajv-formats@3.0.1(ajv@8.20.0):
-    optionalDependencies:
+  ajv-formats@3.0.1:
+    dependencies:
       ajv: 8.20.0
 
   ajv@8.20.0:
@@ -1331,16 +1266,15 @@ snapshots:
 
   json-schema-typed@8.0.2: {}
 
-  lavs-runtime@0.2.0(zod@4.5.4):
+  lavs-runtime@0.2.0:
     dependencies:
-      '@modelcontextprotocol/sdk': 1.30.0(zod@4.5.4)
+      '@modelcontextprotocol/sdk': 1.30.0
       ajv: 8.20.0
-      ajv-formats: 3.0.1(ajv@8.20.0)
+      ajv-formats: 3.0.1
       minimatch: 9.0.9
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
-      - zod
 
   loose-envify@1.4.0:
     dependencies:

@@ -7,12 +7,19 @@ DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless r
 
 | 包 | 类型 | 作用 |
 |----|------|------|
-| `packages/lavs-host` | host 插件 | 发现 lavs.json bundle、同源 serve `/lavs-view/<bundle>/…`、`/lavs` Connection RPC（list/call → lavs-runtime ScriptExecutor）、`lavs_*` agent tools + SSE fan-out |
+| `packages/lavs-host` | host 插件 | 发现 lavs.json bundle、同源 serve `/lavs-view/<bundle>/…`、`/lavs` Connection RPC（list/call → lavs-runtime ScriptExecutor）、loopback CLI 端点（`~/.dsh/lavs-host.json` 发现文件）；`lavs_*` agent tools 为 **opt-in**（`registerAgentTools: true`），默认关闭 |
 | `packages/ui-lavs` | client 插件 | conversation.view 里的 "Views" tab：iframe 装载 LAVS bundle，postMessage 桥接 RPC；preset 感知的 bundle 可见性 |
 | `packages/ui-tasks` | client 插件 | conversation.view 里的 "Tasks" tab：todo 投影一等视图，交互走普通排队用户消息 |
 | `packages/headless-resume` | host 插件 | headless one-shot runner 变体：`--resume <session-id>` / `--print-session-id` |
-| `bundles/lavs` | bundle | 把前三个插件 insert 进任意 web profile |
+| `packages/lavs-cli` | CLI | `lavs list / schema / call` 三动词，零依赖薄客户端，经宿主 loopback 端点读写——**MCP 工具的上下文经济替代**（CLI + Skill 按场景加载，替代 N×M 常驻工具 schema） |
+| `bundles/lavs` | bundle | 插入 lavs-host / ui-lavs / ui-tasks，并携带 CLI 进 profile `node_modules/.bin/lavs` |
 | `bundles/headless-resume` | bundle | disable 原生 `headless-startup`/`headless-runner`，插入我们的变体 |
+| `skills/lavs` | skill | Agent 场景知识：三动词工作流；装到 `~/.dsh/skills/lavs/`（dsh 原生 skill 发现路径） |
+
+## Agent 工具策略：CLI + Skill 优先
+
+mutation 记录内聚在 `service.call`：**不管哪个面**（浏览器 RPC / CLI / opt-in 工具）驱动写入，
+都走同一条审计流 + SSE fan-out，挂载的视图自动刷新。CLI 绝不直写存储——那会让视图变陈旧。
 
 ## 依赖的官方机制（上游 `packages/boot/app-boot/README.md`）
 
@@ -34,8 +41,16 @@ dsh plugin --profile lavs add file:$PWD/bundles/lavs
 # 3. 指定 LAVS bundle 目录（可选，默认扫 ./bundles 与 ~/.dsh/lavs-bundles）
 echo 'LAVS_BUNDLES_DIR=/path/to/lavs/bundles' >> ~/.dsh/.env
 
-# 4. 启动
+# 4. 装 Agent skill（dsh 原生发现路径）
+mkdir -p ~/.dsh/skills && cp -R skills/lavs ~/.dsh/skills/
+
+# 5. 启动
 dsh --profile lavs --port 3099 --no-open
+
+# Agent 侧（或人手）即可：
+~/.dsh/profiles/lavs/node_modules/.bin/lavs list
+lavs schema todo-list
+lavs call todo-list addTodo --input '{"text":"…","priority":1}'
 
 # headless resume 同理：
 dsh plugin --profile headless-rs add file:$PWD/bundles/headless-resume
@@ -45,12 +60,15 @@ dsh --profile headless-rs --print-session-id "task"   # 捕获 stderr 的 sessio
 
 ## 版本锚定（重要）
 
-- **对齐线**：`@deepseek-ai/dsh-*` npm 同步发布到 `0.1.2-rc.1`（latest 标签滞后，装包要显式版本）
-- **类型源**：本仓 devDependencies 用 `link:` 指向 dsh git master（0.1.3-alpha.1）的构建产物，
-  因为 0.1.3 引入的 `ctx.sessions`、`rpc.handle` 两参签名等尚未发 npm；
-  0.1.3-alpha.1 上 npm 后应整体切回 npm 版本
-- **单实例要求**：`@deepseek-ai/cordis` 必须与类型源同一物理实例（link 同一处），
-  否则 `declare module` 扩增会落到另一实例上全部失效（已踩坑，见 tools/build.ts 附近注释）
+- **类型源**：pnpm 依赖保持纯 npm（真实可发布形态）；`@deepseek-ai/dsh-*` 与 vendored
+  cordis/schemastery/loader 的**类型**经 `tsconfig.base.json` 的 `paths` 直指 dsh git master
+  工作树的 `lib/types/*.d.ts`（0.1.3-alpha.1）。不使用 npm dsh 包做 devDep——npm `latest`
+  标签滞留在 0.0.1-rc.1（其依赖的 `dsh-type-meta` 从未发布，安装即 404），显式版本也不必：
+  0.1.3 上 npm 后把 paths 换回普通 devDeps 即可
+- **单实例要求**：cordis/schemastery/plugin-loader 必须与 dsh 包的 d.ts 同一物理实例
+  （paths 统一指到同一棵树），否则 `declare module` 扩增会落到另一实例上全部失效（已踩坑）
+- **peerDependencies 一律 `*`**：运行时由 dsh 安装树供给（profile node_modules 父目录
+  parent-walk），范围声明只会引来错误解析
 - API 漂移台账（相对 fork 基线 0.1.0-rc.5）：`web-react`→`web` 改名、`client-runtime` 删除并入
   `client-store`、`ctx.slots` 合并点迁至 `ui-renderer`、`client-ui-session` 服务更名
   `uiSession`→`sessions`、`rpc.handle` 去掉第三参、`SessionId(...)`→`brandString<SessionId>(...)`、
@@ -58,10 +76,12 @@ dsh --profile headless-rs --print-session-id "task"   # 捕获 stderr 的 sessio
 
 ## 已验证
 
-- [x] 全包 typecheck（对齐 dsh master 类型）+ 8 个构建产物
+- [x] 全包 typecheck（paths→dsh master lib/types）+ 9 个构建产物
 - [x] `--dump-config`：三个插件进入装配树
-- [x] 真实启动：宿主 + client 双半边挂载成功（client-modules 组装含我们的 bundle）
+- [x] 真实启动：宿主 + client 双半边挂载成功；CLI 发现文件 `~/.dsh/lavs-host.json` 落盘
 - [x] `/lavs-view/todo-list/view/index.html` → 200（lavs-host 仓外服务视图文件）
+- [x] **CLI 往返**：`lavs call todo-list addTodo` → listTodos 读回 → todos.json 落盘 ✓；
+  mutation 经宿主记录 agent-action 并 SSE fan-out（视图自动刷新链路保持）
 - [x] headless-rs profile：`--help` 显示我们的 `--resume`/`--print-session-id`，错误路径为我们代码
 - [x] 用户 patch 层热重载（曾用于跳过 onboarding 门）
 - [ ] 浏览器端 Views tab 点击级验证（被工作区选择的原生目录选择器挡住，需真人鼠标一次）

@@ -16,11 +16,12 @@
  * `ctx.lavsHost` seam.
  */
 
-import { createReadStream } from 'node:fs'
+import { createReadStream, mkdirSync, writeFileSync, unlinkSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import { homedir } from 'node:os'
 import { readdir, stat } from 'node:fs/promises'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the webServer Context merge (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
@@ -56,11 +57,29 @@ export interface Config {
    * directory exists gets those bundles (and their agent tools) composed in.
    */
   followPresets?: boolean
+  /**
+   * Register every bundle query/mutation endpoint as a `lavs_<endpoint>`
+   * agent tool. Off by default: N tools × schema is a fixed context tax;
+   * the agent path is the `lavs` CLI plus a skill, which load per scenario.
+   */
+  registerAgentTools?: boolean
+  /**
+   * Serve the CLI listener: a loopback-only HTTP endpoint (Bearer token,
+   * discovery file `~/.dsh/lavs-host.json`) so the `lavs` CLI routes
+   * list/call through this process — one writer, mutations stay auditable
+   * and fan out to mounted views. On by default.
+   */
+  cli?: boolean
+  /** Fixed port for the CLI listener; absent binds an ephemeral loopback port. */
+  cliPort?: number
 }
 
 export const Config: z<Config> = z.object({
   bundlesDir: z.union([z.string(), z.array(z.string())]),
   followPresets: z.boolean(),
+  registerAgentTools: z.boolean(),
+  cli: z.boolean(),
+  cliPort: z.number(),
 })
 
 /** One discovered bundle as the browser sees it. */
@@ -83,12 +102,34 @@ export interface LavsHostService {
    */
   list(presetId?: string): Promise<LavsBundleInfo[]>
   /**
-   * Invoke one manifest endpoint through its script handler.
+   * Invoke one manifest endpoint through its script handler. Every mutation
+   * records an agent-action so mounted views refresh, whichever surface
+   * (browser RPC, CLI, or agent tool) drove the write.
    * @param bundle - bundle name (manifest `name`).
    * @param endpoint - endpoint id from the manifest.
    * @param input - endpoint input (JSON).
+   * @param source - the calling surface, surfaced in the action log.
    */
-  call(bundle: string, endpoint: string, input: unknown): Promise<unknown>
+  call(bundle: string, endpoint: string, input: unknown, source?: string): Promise<unknown>
+  /**
+   * Endpoint-level view of one bundle's manifest: the CLI `schema` verb's
+   * payload (ids, methods, descriptions, declared input schemas).
+   */
+  describe(bundle: string): Promise<LavsBundleSchema | undefined>
+}
+
+/** Endpoint-level manifest projection served to the CLI. */
+export interface LavsBundleSchema {
+  name: string
+  contentType: string
+  version: string
+  description?: string
+  endpoints: Array<{
+    id: string
+    method: string
+    description?: string
+    input?: unknown
+  }>
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -315,6 +356,24 @@ export function apply(ctx: Context, config: Config): void {
     }
   }
 
+  // ── Agent-action log + SSE fan-out (spec §7.4.5) ────────────────────
+  // Every mutation executed through the service (whichever surface drove
+  // it: browser RPC, the `lavs` CLI, or an agent tool) appends one action;
+  // the /lavs/events SSE route streams new actions to every connected
+  // browser, which forwards them into the mounted view iframes as
+  // `lavs-agent-action` messages so views refresh without polling.
+  let actionSeq = 0
+  const recentActions: LavsAgentAction[] = []
+  const actionListeners = new Set<(action: LavsAgentAction) => void>()
+  const recordAction = (action: LavsAgentAction['action']): void => {
+    const full: LavsAgentAction = { seq: ++actionSeq, action }
+    recentActions.push(full)
+    if (recentActions.length > 100) recentActions.shift()
+    for (const listener of actionListeners) {
+      try { listener(full) } catch { /* a slow subscriber never blocks others */ }
+    }
+  }
+
   const service: LavsHostService = {
     async list(presetId?: string): Promise<LavsBundleInfo[]> {
       if (bundles.size === 0) await loadBundles()
@@ -327,42 +386,63 @@ export function apply(ctx: Context, config: Config): void {
       }
       return infos
     },
-    async call(bundle: string, endpoint: string, input: unknown): Promise<unknown> {
+    async call(bundle: string, endpoint: string, input: unknown, source?: string): Promise<unknown> {
+      if (bundles.size === 0) await loadBundles()
       const entry = bundles.get(bundle)
       if (entry === undefined) throw new Error(`lavs-host: unknown bundle "${bundle}"`)
       const m = entry.manifest as unknown as {
-        endpoints: Array<{ id: string; handler: ScriptHandler }>
+        name: string
+        contentType?: string
+        endpoints: Array<{ id: string; handler: ScriptHandler; method?: string }>
         permissions?: Record<string, unknown>
       }
       const found = m.endpoints.find(e => e.id === endpoint)
       if (found === undefined) throw new Error(`lavs-host: bundle "${bundle}" has no endpoint "${endpoint}"`)
-      return await executor.execute(found.handler, input ?? {}, {
+      const result = await executor.execute(found.handler, input ?? {}, {
         endpointId: endpoint,
-        agentId: 'dsh-web',
+        agentId: source === undefined ? 'dsh-web' : `dsh-${source}`,
         workdir: entry.dir,
         permissions: (m.permissions ?? {}) as never,
       })
+      // One writer, one audit log: a mutation records an agent-action and
+      // fans out to every mounted view regardless of the driving surface.
+      if (found.method === 'mutation') {
+        recordAction({
+          type: 'tool_executed',
+          tool: source === undefined ? `web:${bundle}.${endpoint}` : `${source}:${bundle}.${endpoint}`,
+          contentType: m.contentType ?? m.name,
+          timestamp: Date.now(),
+          ...(result === undefined ? {} : { result }),
+        })
+      }
+      return result
+    },
+    async describe(bundle: string): Promise<LavsBundleSchema | undefined> {
+      if (bundles.size === 0) await loadBundles()
+      const entry = bundles.get(bundle)
+      if (entry === undefined) return undefined
+      const m = entry.manifest as unknown as {
+        name: string
+        contentType?: string
+        version: string
+        description?: string
+        endpoints: Array<{ id: string; method: string; description?: string; schema?: { input?: unknown } }>
+      }
+      return {
+        name: m.name,
+        contentType: m.contentType ?? m.name,
+        version: m.version,
+        description: m.description,
+        endpoints: m.endpoints.map(e => ({
+          id: e.id, method: e.method, description: e.description,
+          ...(e.schema?.input === undefined ? {} : { input: e.schema.input }),
+        })),
+      }
     },
   }
   ctx.provide('lavsHost', service)
 
-  // ── Agent-action log + SSE fan-out (spec §7.4.5) ────────────────────
-  // Every mutation executed through the agent tools (below) appends one
-  // action; the /lavs/events SSE route streams new actions to every
-  // connected browser, which forwards them into the mounted view iframes
-  // as `lavs-agent-action` messages so views refresh without polling.
-  let actionSeq = 0
-  const recentActions: LavsAgentAction[] = []
-  const actionListeners = new Set<(action: LavsAgentAction) => void>()
-  const recordAction = (action: Omit<LavsAgentAction, 'seq'>): void => {
-    const full: LavsAgentAction = { seq: ++actionSeq, ...action }
-    recentActions.push(full)
-    if (recentActions.length > 100) recentActions.shift()
-    for (const listener of actionListeners) {
-      try { listener(full) } catch { /* a slow subscriber never blocks others */ }
-    }
-  }
-
+  // ── /lavs/events SSE route ───────────────────────────────────────────
   ctx.webServer.register({
     kind: 'exact',
     path: '/lavs/events',
@@ -386,12 +466,91 @@ export function apply(ctx: Context, config: Config): void {
     },
   })
 
-  // ── Agent tools (AI Sync): every query/mutation endpoint becomes a
-  // `lavs_<endpoint>` tool; execution rides the same script handlers and
-  // records an agent-action so mounted views refresh (spec's AI half).
+  // ── CLI listener: loopback-only HTTP with a Bearer token, so the `lavs`
+  // CLI routes list/schema/call through THIS process. One writer keeps
+  // mutations auditable and fan-out intact; direct storage writes from a
+  // separate process would leave mounted views stale. The discovery file
+  // (~/.dsh/lavs-host.json) publishes {port, token, pid}; the CLI reads it.
+  if (config.cli !== false) {
+    const token = randomBytes(24).toString('base64url')
+    const discoveryPath = join(homedir(), '.dsh', 'lavs-host.json')
+    const readBody = (req: IncomingMessage): Promise<string> => new Promise((resolveBody, rejectBody) => {
+      let size = 0
+      const chunks: Buffer[] = []
+      req.on('data', (chunk: Buffer) => {
+        size += chunk.length
+        if (size > 1_048_576) { rejectBody(new Error('body too large')); req.destroy(); return }
+        chunks.push(chunk)
+      })
+      req.on('end', () => { resolveBody(Buffer.concat(chunks).toString('utf8')) })
+      req.on('error', rejectBody)
+    })
+    const server = createServer((req: IncomingMessage, res: ServerResponse): void => {
+      if (req.headers.authorization !== `Bearer ${token}`) {
+        res.statusCode = 401
+        res.end('unauthorized')
+        return
+      }
+      const url = new URL(req.url ?? '/', 'http://lavs.local')
+      const respond = (code: number, value: unknown): void => {
+        res.statusCode = code
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify(value))
+      }
+      void (async (): Promise<void> => {
+        if (req.method === 'GET' && url.pathname === '/health') {
+          respond(200, { ok: true })
+          return
+        }
+        if (req.method === 'GET' && url.pathname === '/schema') {
+          const bundle = url.searchParams.get('bundle')
+          if (bundle === null || bundle === '') { respond(400, { error: 'bundle query parameter required' }); return }
+          respond(200, await service.describe(bundle))
+          return
+        }
+        if (req.method === 'POST' && (url.pathname === '/list' || url.pathname === '/call' || url.pathname === '/schema')) {
+          const body = JSON.parse((await readBody(req)) || '{}') as Record<string, unknown>
+          if (url.pathname === '/list') {
+            respond(200, await service.list(typeof body.presetId === 'string' ? body.presetId : undefined))
+            return
+          }
+          if (url.pathname === '/schema') {
+            respond(200, await service.describe(typeof body.bundle === 'string' ? body.bundle : ''))
+            return
+          }
+          if (typeof body.bundle !== 'string' || typeof body.endpoint !== 'string') {
+            respond(400, { error: 'bundle and endpoint must be strings' })
+            return
+          }
+          respond(200, { result: await service.call(body.bundle, body.endpoint, body.input, 'cli') })
+          return
+        }
+        respond(404, { error: 'unknown route' })
+      })().catch((e: unknown) => {
+        respond(500, { error: e instanceof Error ? e.message : String(e) })
+      })
+    })
+    server.listen(config.cliPort ?? 0, '127.0.0.1', () => {
+      const address = server.address()
+      const port = typeof address === 'object' && address !== null ? address.port : 0
+      mkdirSync(dirname(discoveryPath), { recursive: true })
+      writeFileSync(discoveryPath, JSON.stringify({ port, token, pid: process.pid, startedAt: new Date().toISOString() }))
+      ctx.logger.info(`lavs-host: cli listener on 127.0.0.1:${port} (discovery at ${discoveryPath})`)
+    })
+    ctx.effect(() => () => {
+      server.close()
+      try { unlinkSync(discoveryPath) } catch { /* already gone */ }
+    }, 'lavs-host: cli listener')
+  }
+
+  // ── Agent tools (AI Sync, opt-in): every query/mutation endpoint becomes
+  // a `lavs_<endpoint>` tool. Off by default — N tools × schema is a fixed
+  // context tax; the default agent path is the `lavs` CLI plus a skill.
+  // When enabled, execution rides the same service.call as every surface.
   const usedToolNames = new Set<string>()
   void toolDisposers // referenced by loadBundles above
   const registerBundleTools = (entry: BundleEntry, bundleName: string): void => {
+    if (config.registerAgentTools !== true) return
     const m = entry.manifest as unknown as {
       name: string
       contentType?: string
@@ -402,7 +561,6 @@ export function apply(ctx: Context, config: Config): void {
         schema?: { input?: unknown }
       }>
     }
-    const contentType = m.contentType ?? m.name
     for (const endpoint of m.endpoints) {
       if (endpoint.method !== 'query' && endpoint.method !== 'mutation') continue
       let toolName = `lavs_${endpoint.id}`
@@ -421,20 +579,7 @@ export function apply(ctx: Context, config: Config): void {
           }],
         },
         execute(args: Record<string, unknown>) {
-          return service.call(bundleName, endpoint.id, args).then((result) => {
-            if (endpoint.method === 'mutation') {
-              recordAction({
-                action: {
-                  type: 'tool_executed',
-                  tool: toolName,
-                  contentType,
-                  timestamp: Date.now(),
-                  ...(result === undefined ? {} : { result }),
-                },
-              })
-            }
-            return result
-          }) as Promise<unknown> as Promise<never>
+          return service.call(bundleName, endpoint.id, args, `tool:${toolName}`) as Promise<never>
         },
         presentCall: (callArgs: unknown) => ({ card: 'generic', title: toolName, kind: 'other', rawInput: callArgs }),
       })))
