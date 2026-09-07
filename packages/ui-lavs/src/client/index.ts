@@ -22,7 +22,7 @@ import { appRef } from './context.ts'
 import { en, NS, zh } from './locales.ts'
 import { LavsHeaderAction } from './HeaderAction.tsx'
 
-export type { LavsBundleCard } from './Drawer.tsx'
+export type { LavsWithBundle as LavsBundleCard } from './Drawer.tsx'
 
 /** Required services: the header action slot, the connection RPC caller, the session registry, and the locale service. */
 export const inject = ['slots', 'connection', 'sessions', 'locale']

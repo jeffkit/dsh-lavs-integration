@@ -16,13 +16,14 @@
  * `ctx.lavsHost` seam.
  */
 
-import { createReadStream, mkdirSync, writeFileSync, unlinkSync } from 'node:fs'
+import { chmodSync, createReadStream, mkdirSync, watch, writeFileSync, unlinkSync, type FSWatcher } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { homedir } from 'node:os'
 import { readdir, stat } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
+import { visibleEntries } from './scope.ts'
 // Type-only: pulls the webServer Context merge (ctx.webServer).
 import type {} from '@deepseek-ai/dsh-host-webserver'
 // Type-only: pulls the connection host-face Context merge (ctx.connection).
@@ -254,16 +255,12 @@ function convertParameters(input: unknown): Record<string, DshSchemaSpec> {
   return out
 }
 
-/** Spec §7.4.5 agent-action payload delivered to every mounted view. */
+/** Spec §7.4.5 action payload delivered to every mounted view. */
 interface LavsAgentAction {
   seq: number
-  action: {
-    type: 'tool_executed'
-    tool: string
-    contentType: string
-    timestamp: number
-    result?: unknown
-  }
+  action:
+    | { type: 'tool_executed'; tool: string; contentType: string; timestamp: number; result?: unknown }
+    | { type: 'bundles_changed'; timestamp: number }
 }
 
 /**
@@ -282,6 +279,8 @@ export function apply(ctx: Context, config: Config): void {
   const rootToWorkspace = new Map<string, string>()
   /** Workspace cwds probed and confirmed to carry NO project bundle dir. */
   const absentWorkspaces = new Set<string>()
+  /** One watcher per live project bundle dir — changes re-scan and fan out. */
+  const workspaceWatchers = new Map<string, FSWatcher>()
   const toolDisposers: Array<() => void> = []
 
   const scanRoot = async (root: string, presetId?: string, workspaceCwd?: string): Promise<void> => {
@@ -327,8 +326,31 @@ export function apply(ctx: Context, config: Config): void {
     }
     extraRoots.add(dir)
     rootToWorkspace.set(dir, workspaceCwd)
+    // Hot project data: watch the bundle dir so manifests added, fixed, or
+    // removed mid-session reach the drawer without a reopen. Debounced —
+    // one authored save tends to emit several events.
+    if (!workspaceWatchers.has(dir)) {
+      try {
+        const watcher = watch(dir, { persistent: false })
+        let timer: ReturnType<typeof setTimeout> | undefined
+        watcher.on('change', () => {
+          clearTimeout(timer)
+          timer = setTimeout(() => {
+            void loadBundles().then(() => {
+              recordAction({ type: 'bundles_changed', timestamp: Date.now() })
+            }).catch(() => { /* a failed rescan keeps the last good tree */ })
+          }, 400)
+        })
+        workspaceWatchers.set(dir, watcher)
+      } catch { /* watch unavailable — pull-based list still works */ }
+    }
     await loadBundles()
   }
+
+  ctx.effect(() => () => {
+    for (const watcher of workspaceWatchers.values()) watcher.close()
+    workspaceWatchers.clear()
+  }, 'lavs-host: workspace watchers')
 
   const loadBundles = async (): Promise<void> => {
     // Re-load from scratch: dispose every previously registered agent tool
@@ -410,13 +432,7 @@ export function apply(ctx: Context, config: Config): void {
       if (workspaceCwd !== undefined) await ensureWorkspaceRoot(workspaceCwd)
       if (bundles.size === 0) await loadBundles()
       const infos: LavsBundleInfo[] = []
-      for (const entry of bundles.values()) {
-        // Scoped bundles are visible only to sessions in their scope:
-        // preset-sourced to sessions running that preset, workspace-sourced
-        // to sessions whose cwd is that project. Base roots are always
-        // visible (deployment-wide).
-        if (entry.sourcePreset !== undefined && entry.sourcePreset !== presetId) continue
-        if (entry.sourceWorkspace !== undefined && entry.sourceWorkspace !== workspaceCwd) continue
+      for (const entry of visibleEntries(bundles.values(), presetId, workspaceCwd)) {
         infos.push(toInfo(entry, await hasViewFile(entry)))
       }
       return infos
@@ -572,7 +588,10 @@ export function apply(ctx: Context, config: Config): void {
       const address = server.address()
       const port = typeof address === 'object' && address !== null ? address.port : 0
       mkdirSync(dirname(discoveryPath), { recursive: true })
-      writeFileSync(discoveryPath, JSON.stringify({ port, token, pid: process.pid, startedAt: new Date().toISOString() }))
+      // 0600: the file carries the bearer token; any local reader could
+      // otherwise execute bundle scripts through the listener.
+      writeFileSync(discoveryPath, JSON.stringify({ port, token, pid: process.pid, startedAt: new Date().toISOString() }), { mode: 0o600 })
+      chmodSync(discoveryPath, 0o600)
       ctx.logger.info(`lavs-host: cli listener on 127.0.0.1:${port} (discovery at ${discoveryPath})`)
     })
     ctx.effect(() => () => {

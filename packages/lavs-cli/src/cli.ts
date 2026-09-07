@@ -2,33 +2,16 @@
 /**
  * lavs — agent-facing thin client over the running dsh lavs-host adapter.
  *
- * Three verbs, manifest-driven, zero per-bundle code:
- *   lavs list [--preset <id>] [--json]
- *   lavs schema <bundle> [--json]
- *   lavs call <bundle> <endpoint> [--input '<json>'] [--json]
- *   lavs url                          # show the discovered host endpoint
- *
- * Why a CLI and not registered tools: N bundles × M endpoints of tool
- * schemas are a fixed context tax; this surface is one command name whose
- * details load per scenario (skill + `lavs schema`). Calls route through
- * the running host (never direct storage writes), so mutations stay in one
- * auditable stream and mounted views refresh over SSE.
- *
- * Discovery order: --url/--token flags → LAVS_HOST_URL/LAVS_HOST_TOKEN env
- * → ~/.dsh/lavs-host.json (written by the lavs-host adapter at boot).
+ * Verbs (see USAGE in ./args.ts): list / schema / call / init / url.
+ * Calls route through the running host (never direct storage writes), so
+ * mutations stay in one auditable stream and mounted views refresh over
+ * SSE. `init` scaffolds a minimal, loader-valid bundle skeleton.
  * @module dsh-plugin-lavs-cli
  */
 
-import { readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-
-interface Discovery {
-  port: number
-  token: string
-  pid?: number
-  startedAt?: string
-}
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { basename, join, resolve } from 'node:path'
+import { parseArgs, CliError, USAGE } from './args.ts'
 
 interface BundleInfo {
   name: string
@@ -45,75 +28,6 @@ interface BundleSchema {
   version: string
   description?: string
   endpoints: Array<{ id: string; method: string; description?: string; input?: unknown }>
-}
-
-const USAGE = `lavs — Local Agent View Service CLI (thin client over the dsh lavs-host adapter)
-
-Usage:
-  lavs list [--preset <id>] [--workspace <dir>] [--json]
-                                             list bundles visible to that scope
-  lavs schema <bundle> [--json]              one bundle's endpoints with input schemas
-  lavs call <bundle> <endpoint> [--input '<json>'] [--json]
-                                             invoke an endpoint through the host
-  lavs url                                   show the discovered host endpoint
-  lavs --help | -h                           this help
-
-Discovery: --url/--token flags → LAVS_HOST_URL / LAVS_HOST_TOKEN env →
-~/.dsh/lavs-host.json (written by the lavs-host adapter at boot).`
-
-class CliError extends Error {}
-
-function parseArgs(argv: string[]): { url: string; token: string; positional: string[]; flags: Set<string>; preset: string | undefined; workspace: string | undefined; input: string | undefined; json: boolean } {
-  let url: string | undefined
-  let token: string | undefined
-  let preset: string | undefined
-  let workspace: string | undefined
-  let input: string | undefined
-  const positional: string[] = []
-  const flags = new Set<string>()
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i] as string
-    if (arg === '--url') {
-      url = argv[++i]
-      if (url === undefined) throw new CliError('--url needs a value')
-      continue
-    }
-    if (arg === '--token') {
-      token = argv[++i]
-      if (token === undefined) throw new CliError('--token needs a value')
-      continue
-    }
-    if (arg === '--preset') {
-      preset = argv[++i]
-      if (preset === undefined) throw new CliError('--preset needs a value')
-      continue
-    }
-    if (arg === '--workspace') {
-      workspace = argv[++i]
-      if (workspace === undefined) throw new CliError('--workspace needs a directory')
-      continue
-    }
-    if (arg === '--input') {
-      input = argv[++i]
-      if (input === undefined) throw new CliError('--input needs a JSON string')
-      continue
-    }
-    if (arg === '--json') { flags.add('json'); continue }
-    if (arg === '--help' || arg === '-h') { flags.add('help'); continue }
-    if (arg.startsWith('--')) throw new CliError(`unknown option "${arg}"`)
-    positional.push(arg)
-  }
-  if (url === undefined || token === undefined) {
-    const discoveryPath = join(homedir(), '.dsh', 'lavs-host.json')
-    try {
-      const found = JSON.parse(readFileSync(discoveryPath, 'utf8')) as Discovery
-      if (url === undefined) url = `http://127.0.0.1:${found.port}`
-      if (token === undefined) token = found.token
-    } catch {
-      throw new CliError(`no host discovery: ${discoveryPath} is missing and no --url/--token or env override given. Is a dsh web profile with the lavs bundle running?`)
-    }
-  }
-  return { url: url as string, token: token as string, positional, flags, preset, workspace, input, json: flags.has('json') }
 }
 
 async function request(url: string, token: string, path: string, body?: unknown): Promise<unknown> {
@@ -155,6 +69,41 @@ function printSchema(schema: BundleSchema): void {
   }
 }
 
+/** Scaffold a minimal, loader-valid bundle skeleton (refuses to overwrite). */
+function initBundle(dirArg: string, nameArg: string | undefined): void {
+  const dir = resolve(dirArg)
+  const name = nameArg ?? basename(dir)
+  const manifestPath = join(dir, 'lavs.json')
+  if (existsSync(manifestPath)) throw new CliError(`refusing to overwrite existing ${manifestPath}`)
+  mkdirSync(dir, { recursive: true })
+  mkdirSync(join(dir, 'view'), { recursive: true })
+  const manifest = {
+    lavs: '1.0',
+    name,
+    contentType: `lavs/${name}`,
+    version: '0.1.0',
+    description: `${name} — scaffolded by lavs init`,
+    endpoints: [
+      {
+        id: 'ping',
+        method: 'query',
+        description: 'liveness probe returning { name } as JSON',
+        handler: { type: 'script', command: 'echo', args: [JSON.stringify({ name })] },
+      },
+    ],
+    view: { entry: 'index.html' },
+  }
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  writeFileSync(
+    join(dir, 'view', 'index.html'),
+    `<!doctype html>\n<html><body style="font-family: system-ui; padding: 24px">\n  <h2>${name}</h2>\n  <p>Scaffolded view — edit <code>view/index.html</code>; data endpoints live in <code>lavs.json</code>.</p>\n</body></html>\n`,
+  )
+  console.log(`scaffolded bundle "${name}" at ${dir}`)
+  console.log(`  ${manifestPath}   — declare query/mutation endpoints here`)
+  console.log(`  ${join(dir, 'view', 'index.html')}   — the rendered view (postMessage bridge is wired by the host)`)
+  console.log('next: copy this dir under <project>/.lavs/bundles/ or the host bundlesDir, then `lavs list`')
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2))
   if (args.flags.has('help') || args.positional.length === 0) {
@@ -164,6 +113,11 @@ async function main(): Promise<number> {
   const [verb, bundle, endpoint] = args.positional
   if (verb === 'url') {
     console.log(`${args.url} (pid/discovery in ~/.dsh/lavs-host.json)`)
+    return 0
+  }
+  if (verb === 'init') {
+    if (bundle === undefined) throw new CliError('usage: lavs init <dir> [--name <name>]')
+    initBundle(bundle, args.positional[2] === undefined ? undefined : args.positional[2])
     return 0
   }
   if (verb === 'list') {

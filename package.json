@@ -6,13 +6,16 @@
   "type": "module",
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
-    "typecheck": "tsc -b packages/lavs-host packages/ui-lavs packages/ui-tasks packages/headless-resume",
-    "bundles:sync": "node scripts/install-profile.mjs"
+    "bundles:sync": "node scripts/install-profile.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -b packages/lavs-host packages/ui-lavs packages/ui-tasks packages/headless-resume"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
     "tsdown": "^0.12.9",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
   },
   "packageManager": "pnpm@11.7.0"
 }
