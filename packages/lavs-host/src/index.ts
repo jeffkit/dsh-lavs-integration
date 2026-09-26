@@ -664,36 +664,89 @@ export function apply(ctx: Context, config: Config): void {
     },
   })
 
-  // Browser RPC channel: POST /rpc/lavs/{list|call}. Errors fold to the
-  // closed 'internal' code — the message carries the LAVS detail.
-  ctx.inject(['connection'], (connectionCtx: Context) => {
-    void connectionCtx.connection.rpc.handle(
-      '/lavs',
-      async (endpoint: string, payload: unknown) => {
+  // Browser RPC channel: POST /lavs/{list|call}. Mounted directly on the
+  // webServer (the connection service's own rpc.handle reads `webServer`
+  // from the connection plugin's fiber, which never declares it, so external
+  // channels cannot use it). Auth rides the connection service's admission
+  // fence; the wire envelope mirrors the shared-channel bridge exactly —
+  // request {type:'client-request', rpcId, method, payload}, response
+  // {type:'server-response', rpcId, result}.
+  ctx.inject(['connection', 'webServer'], (connectionCtx: Context) => {
+    const connection = connectionCtx.connection
+    const readBody = (req: IncomingMessage): Promise<string> => new Promise((resolveBody, rejectBody) => {
+      let size = 0
+      const chunks: Buffer[] = []
+      req.on('data', (chunk: Buffer) => {
+        size += chunk.length
+        if (size > 1_048_576) { rejectBody(new Error('body too large')); req.destroy(); return }
+        chunks.push(chunk)
+      })
+      req.on('end', () => { resolveBody(Buffer.concat(chunks).toString('utf8')) })
+      req.on('error', rejectBody)
+    })
+    const respondResult = (res: ServerResponse, rpcId: string, result: unknown): void => {
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify({ type: 'server-response', rpcId, result }))
+    }
+    ctx.webServer.register({
+      kind: 'prefix',
+      path: '/lavs',
+      handler: async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+        const admission = connection.admit(req)
+        if ('rejection' in admission) {
+          res.writeHead(admission.rejection)
+          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
+          return
+        }
+        const url = new URL(req.url ?? '/', 'http://lavs.local')
+        const segments = url.pathname.split('/').filter(s => s !== '')
+        // ['lavs', endpoint]
+        const endpoint = segments[1]
+        if (req.method !== 'POST' || endpoint === undefined) {
+          res.writeHead(404)
+          res.end('not found')
+          return
+        }
+        let message: { rpcId?: unknown; method?: unknown; payload?: unknown }
+        try {
+          message = JSON.parse((await readBody(req)) || '{}') as { rpcId?: unknown; method?: unknown; payload?: unknown }
+        } catch {
+          res.writeHead(400)
+          res.end('body is not JSON')
+          return
+        }
+        const rpcId = typeof message.rpcId === 'string' ? message.rpcId : 'invalid'
+        if (message.method !== endpoint) {
+          respondResult(res, rpcId, { ok: false, error: { code: 'gateway/bad-request', message: `method ${JSON.stringify(message.method)} does not match endpoint ${JSON.stringify(endpoint)}`, details: {} } })
+          return
+        }
         try {
           if (endpoint === 'list') {
-            const p = payload as { presetId?: unknown; workspaceCwd?: unknown }
-            return {
+            const p = message.payload as { presetId?: unknown; workspaceCwd?: unknown }
+            respondResult(res, rpcId, {
               ok: true,
               value: await service.list(
                 typeof p?.presetId === 'string' ? p.presetId : undefined,
                 typeof p?.workspaceCwd === 'string' ? p.workspaceCwd : undefined,
               ),
-            }
+            })
+            return
           }
           if (endpoint === 'call') {
-            const p = payload as { bundle?: unknown; endpoint?: unknown; input?: unknown }
+            const p = message.payload as { bundle?: unknown; endpoint?: unknown; input?: unknown }
             if (typeof p.bundle !== 'string' || typeof p.endpoint !== 'string') {
-              return { ok: false, error: { code: 'internal', message: 'bundle and endpoint must be strings', details: {} } }
+              respondResult(res, rpcId, { ok: false, error: { code: 'internal', message: 'bundle and endpoint must be strings', details: {} } })
+              return
             }
-            return { ok: true, value: await service.call(p.bundle, p.endpoint, p.input) }
+            respondResult(res, rpcId, { ok: true, value: await service.call(p.bundle, p.endpoint, p.input) })
+            return
           }
-          return { ok: false, error: { code: 'internal', message: `unknown lavs endpoint "${endpoint}"`, details: {} } }
+          respondResult(res, rpcId, { ok: false, error: { code: 'internal', message: `unknown lavs endpoint "${endpoint}"`, details: {} } })
         } catch (e) {
-          return { ok: false, error: { code: 'internal', message: e instanceof Error ? e.message : String(e), details: {} } }
+          respondResult(res, rpcId, { ok: false, error: { code: 'internal', message: e instanceof Error ? e.message : String(e), details: {} } })
         }
       },
-    )
+    })
   })
 
   void loadBundles()
