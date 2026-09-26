@@ -1,6 +1,6 @@
 # dsh-lavs-integration
 
-DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless resume runner。
+DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless resume runner（**已废弃**，见下）。
 不 fork DSH、不改上游任何文件——全部通过 DSH 官方扩展机制挂载。
 
 ## 组成
@@ -10,10 +10,10 @@ DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless r
 | `packages/lavs-host` | host 插件 | 按**会话工作目录**发现 `.lavs/bundles/` 下的 lavs.json bundle、同源 serve `/lavs-view/<bundle>/…`、`/lavs` Connection RPC（list/call → lavs-runtime ScriptExecutor）、loopback CLI 端点（`~/.dsh/lavs-host.json` 发现文件）；`lavs_*` agent tools 为 **opt-in**（`registerAgentTools: true`），默认关闭 |
 | `packages/ui-lavs` | client 插件 | **原生右侧栏 tab**（`ctx.sidebarRightTabs` 两段式注册，`keepMounted`）：iframe 装载 LAVS bundle，postMessage 桥接 RPC；视图严格跟随会话工作目录——项目没有 bundle 就显示空态引导 |
 | `packages/ui-tasks` | client 插件 | conversation.view 里的 "Tasks" tab：todo 投影一等视图，交互走普通排队用户消息 |
-| `packages/headless-resume` | host 插件 | headless one-shot runner 变体：`--resume <session-id>` / `--print-session-id` |
+| `packages/headless-resume` | host 插件 | **[已废弃]** headless one-shot runner 变体：`--resume <session-id>` / `--print-session-id`——上游 ≥ 0.1.6-alpha.1 原生 `--session-id`(adopt)+ `--json` 已取代,仅留档给 0.1.0-rc.x 旧版 |
 | `packages/lavs-cli` | CLI | `lavs list / schema / call` 三动词，零依赖薄客户端，经宿主 loopback 端点读写——**MCP 工具的上下文经济替代**（CLI + Skill 按场景加载，替代 N×M 常驻工具 schema） |
 | `bundles/lavs` | bundle | 插入 lavs-host / ui-lavs / ui-tasks，并携带 CLI 进 profile `node_modules/.bin/lavs` |
-| `bundles/headless-resume` | bundle | disable 原生 `headless-startup`/`headless-runner`，插入我们的变体 |
+| `bundles/headless-resume` | bundle | **[已废弃]** disable 原生 `headless-startup`/`headless-runner`，插入我们的变体——同上,仅留档 |
 | `skills/lavs` | skill | Agent 场景知识：三动词工作流；装到 `~/.dsh/skills/lavs/`（dsh 原生 skill 发现路径） |
 
 ## Agent 工具策略：CLI + Skill 优先
@@ -52,10 +52,10 @@ dsh --profile lavs --port 3099 --no-open
 lavs schema todo-list
 lavs call todo-list addTodo --input '{"text":"…","priority":1}'
 
-# headless resume 同理：
-dsh plugin --profile headless-rs add file:$PWD/bundles/headless-resume
-#   bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-headless", "dsh-bundle-headless-resume"]
-dsh --profile headless-rs --print-session-id "task"   # 捕获 stderr 的 session id，之后 --resume 续跑
+# headless resume：**已退役**。上游 dsh >= 0.1.6-alpha.1 原生支持
+#   dsh --profile headless --json "task"            # 首帧给 session id
+#   dsh --profile headless --session-id <id> "task" # adopt 续跑（同 cwd）
+# agentproc hub/dsh 桥已改走原生路径；bundles/headless-resume 仅留档给 0.1.0-rc.x 旧版
 ```
 
 ## 版本锚定（重要）

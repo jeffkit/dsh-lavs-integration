@@ -1,6 +1,6 @@
 {
   "name": "dsh-bundle-headless-resume",
-  "description": "dsh bundle: replaces the stock headless one-shot runner with the --resume / --print-session-id variant",
+  "description": "[DEPRECATED] dsh bundle: replaces the stock headless one-shot runner with the --resume / --print-session-id variant. Superseded by upstream-native --session-id/--json in dsh >= 0.1.6-alpha.1; kept only for 0.1.0-rc.x-era installs.",
   "version": "0.1.0",
   "private": true,
   "type": "module",

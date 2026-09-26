@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-headless-resume",
-  "description": "Headless one-shot runner for DeepSeek Harness with --resume and --print-session-id: replaces the stock headless-startup/headless-runner pair via the dsh-bundle-headless-resume bundle",
+  "description": "[DEPRECATED] Headless one-shot runner for DeepSeek Harness with --resume and --print-session-id: replaces the stock headless-startup/headless-runner pair via the dsh-bundle-headless-resume bundle. Superseded by upstream-native --session-id/--json in dsh >= 0.1.6-alpha.1; kept only for 0.1.0-rc.x-era installs.",
   "version": "0.1.0",
   "private": true,
   "type": "module",
