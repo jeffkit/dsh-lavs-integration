@@ -14,9 +14,10 @@ jobs:
     # checkout step here once anchoring moves to published packages.
     steps:
       - uses: actions/checkout@v4
+      # pnpm version comes solely from package.json `packageManager`
+      # (pnpm@11.7.0) — declaring it here too makes action-setup fail with
+      # "Multiple versions of pnpm specified".
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
       - uses: actions/setup-node@v4
         with:
           node-version: 22
