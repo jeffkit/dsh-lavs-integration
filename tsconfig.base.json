@@ -23,94 +23,100 @@
     "baseUrl": ".",
     "paths": {
       "@deepseek-ai/cordis": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/vendor/cordis/lib/types/index.d.ts"
+        "../deepseek-harness/vendor/cordis/lib/types/index.d.ts"
       ],
       "@deepseek-ai/schemastery": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/vendor/schemastery/lib/types/index.d.ts"
+        "../deepseek-harness/vendor/schemastery/lib/types/index.d.ts"
       ],
       "@deepseek-ai/cordis-plugin-loader": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/vendor/loader/lib/types/index.d.ts"
+        "../deepseek-harness/vendor/loader/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-host-webserver": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/host/webserver/lib/types/index.d.ts"
+        "../deepseek-harness/packages/host/webserver/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-connection": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/connection/lib/types/index.d.ts"
+        "../deepseek-harness/packages/client/connection/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-connection/client": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/connection/lib/types/client/index.d.ts"
+        "../deepseek-harness/packages/client/connection/lib/types/client/index.d.ts"
       ],
-      "@deepseek-ai/dsh-agent-presets": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/preset/agent-presets/lib/types/index.d.ts"
+      "@deepseek-ai/dsh-agent-preset-registry": [
+        "../deepseek-harness/packages/preset/agent-preset-registry/lib/types/index.d.ts"
       ],
-      "@deepseek-ai/dsh-agent-presets/types": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/preset/agent-presets/lib/types/types.d.ts"
+      "@deepseek-ai/dsh-agent-preset-registry/types": [
+        "../deepseek-harness/packages/preset/agent-preset-registry/lib/types/types.d.ts"
       ],
       "@deepseek-ai/dsh-tools": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/tools/lib/types/index.d.ts"
+        "../deepseek-harness/packages/core/tools/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-api-remotes": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/api/remotes/lib/types/index.d.ts"
+        "../deepseek-harness/packages/api/remotes/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-api-remotes/client": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/api/remotes/lib/types/client/index.d.ts"
+        "../deepseek-harness/packages/api/remotes/lib/types/client/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-locale": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/locale/lib/types/index.d.ts"
+        "../deepseek-harness/packages/client/locale/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-locale/client": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/locale/lib/types/client/index.d.ts"
+        "../deepseek-harness/packages/client/locale/lib/types/client/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-ui-conversation": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-conversation/lib/types/index.d.ts"
+        "../deepseek-harness/packages/client/ui-conversation/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-ui-conversation/client": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-conversation/lib/types/client/index.d.ts"
+        "../deepseek-harness/packages/client/ui-conversation/lib/types/client/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-ui-slots": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-slots/lib/types/index.d.ts"
+        "../deepseek-harness/packages/client/ui-slots/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-ui-renderer": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-renderer/lib/types/index.d.ts"
+        "../deepseek-harness/packages/client/ui-renderer/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-ui-renderer/client": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-renderer/lib/types/client/index.d.ts"
+        "../deepseek-harness/packages/client/ui-renderer/lib/types/client/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-ui-session": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-session/lib/types/index.d.ts"
+        "../deepseek-harness/packages/client/ui-session/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-ui-session/client": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/ui-session/lib/types/client/index.d.ts"
+        "../deepseek-harness/packages/client/ui-session/lib/types/client/index.d.ts"
       ],
       "@deepseek-ai/dsh-client-store": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/client/store/lib/types/index.d.ts"
+        "../deepseek-harness/packages/client/store/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-brand": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/brand/lib/types/index.d.ts"
+        "../deepseek-harness/packages/util/brand/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-invariants": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/runtime-diagnostics/invariants/lib/types/index.d.ts"
+        "../deepseek-harness/packages/runtime-diagnostics/invariants/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-agent": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/agent/lib/types/index.d.ts"
+        "../deepseek-harness/packages/core/agent/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-agent-default-model": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/agent-default-model/lib/types/index.d.ts"
+        "../deepseek-harness/packages/core/agent-default-model/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-cmdline": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/boot/cmdline/lib/types/index.d.ts"
+        "../deepseek-harness/packages/boot/cmdline/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-llm": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/llm/llm/lib/types/index.d.ts"
+        "../deepseek-harness/packages/llm/llm/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-session": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/session/lib/types/index.d.ts"
+        "../deepseek-harness/packages/core/session/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-session/types": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/core/session/lib/types/types.d.ts"
+        "../deepseek-harness/packages/core/session/lib/types/types.d.ts"
       ],
       "@deepseek-ai/dsh-util-values": [
-        "../deepseek-harness/.worktrees/rebase-rehearsal/packages/util/values/lib/types/index.d.ts"
+        "../deepseek-harness/packages/util/values/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-sidebar-right": [
+        "../deepseek-harness/packages/client/ui-sidebar-right/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-sidebar-right/client": [
+        "../deepseek-harness/packages/client/ui-sidebar-right/lib/types/client/index.d.ts"
       ]
     }
   }

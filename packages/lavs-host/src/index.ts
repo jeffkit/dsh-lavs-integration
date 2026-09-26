@@ -28,10 +28,6 @@ import { visibleEntries } from './scope.ts'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 // Type-only: pulls the connection host-face Context merge (ctx.connection).
 import type {} from '@deepseek-ai/dsh-client-connection'
-// Type-only: pulls the agent-presets Context merge (ctx.agentPresets) and
-// the agent-preset/selected event declaration (src/types.ts side).
-import type {} from '@deepseek-ai/dsh-agent-presets'
-import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ParameterSchemaSpec } from '@deepseek-ai/dsh-tools'
@@ -53,11 +49,12 @@ export interface Config {
    */
   bundlesDir?: string | string[]
   /**
-   * Also scan `<preset-dir>/lavs-bundles` for every agent preset and follow
-   * `agent-preset/selected`: a session naming a preset whose bundle
-   * directory exists gets those bundles (and their agent tools) composed in.
+   * Additional bundle roots scanned on top of `bundlesDir` (one bundle
+   * sub-directory per `lavs.json` manifest each). A profile that ships views
+   * lists its own directory here — e.g. `~/.dsh/profiles/<name>/lavs-bundles`
+   * — keeping profile-local bundles explicit instead of inferred.
    */
-  followPresets?: boolean
+  extraBundleDirs?: string | string[]
   /**
    * Register every bundle query/mutation endpoint as a `lavs_<endpoint>`
    * agent tool. Off by default: N tools × schema is a fixed context tax;
@@ -77,7 +74,7 @@ export interface Config {
 
 export const Config: z<Config> = z.object({
   bundlesDir: z.union([z.string(), z.array(z.string())]),
-  followPresets: z.boolean(),
+  extraBundleDirs: z.union([z.string(), z.array(z.string())]),
   registerAgentTools: z.boolean(),
   cli: z.boolean(),
   cliPort: z.number(),
@@ -275,7 +272,6 @@ export function apply(ctx: Context, config: Config): void {
   const declared = config.bundlesDir === undefined ? [] : Array.isArray(config.bundlesDir) ? config.bundlesDir : [config.bundlesDir]
   const baseRoots = (declared.length > 0 ? declared : ['bundles', join(homedir(), '.dsh', 'lavs-bundles')]).map(p => resolve(p))
   const extraRoots = new Set<string>()
-  const rootToPreset = new Map<string, string>()
   const rootToWorkspace = new Map<string, string>()
   /** Workspace cwds probed and confirmed to carry NO project bundle dir. */
   const absentWorkspaces = new Set<string>()
@@ -283,7 +279,7 @@ export function apply(ctx: Context, config: Config): void {
   const workspaceWatchers = new Map<string, FSWatcher>()
   const toolDisposers: Array<() => void> = []
 
-  const scanRoot = async (root: string, presetId?: string, workspaceCwd?: string): Promise<void> => {
+  const scanRoot = async (root: string, workspaceCwd?: string): Promise<void> => {
     let dirs: string[] = []
     try {
       dirs = (await readdir(root, { withFileTypes: true }))
@@ -298,7 +294,6 @@ export function apply(ctx: Context, config: Config): void {
         const name = (manifest as unknown as { name: string }).name
         bundles.set(name, {
           manifest, dir: join(root, dir),
-          ...(presetId === undefined ? {} : { sourcePreset: presetId }),
           ...(workspaceCwd === undefined ? {} : { sourceWorkspace: workspaceCwd }),
         })
       } catch (e) {
@@ -361,44 +356,17 @@ export function apply(ctx: Context, config: Config): void {
     bundles.clear()
     usedToolNames.clear()
     for (const root of baseRoots) await scanRoot(root)
-    for (const root of extraRoots) await scanRoot(root, rootToPreset.get(root), rootToWorkspace.get(root))
+    for (const root of extraRoots) await scanRoot(root, rootToWorkspace.get(root))
     ctx.logger.info(`lavs-host: loaded ${bundles.size} bundle(s) from ${baseRoots.length + extraRoots.size} root(s)`)
     for (const [bundleName, entry] of bundles) registerBundleTools(entry, bundleName)
   }
 
-  if (config.followPresets === true) {
-    ctx.inject(['agentPresets'], (presetCtx: Context) => {
-      const presets = presetCtx.agentPresets
-      // Seed with every currently known preset's bundle directory. All stat
-      // probes settle BEFORE the reload, so a present directory can never
-      // lose the race with loadBundles.
-      void presets.list().then(async (list) => {
-        await Promise.all(list.map(async (preset) => {
-          const dir = join(dirname(preset.path), 'lavs-bundles')
-          try {
-            await stat(dir)
-            extraRoots.add(dir)
-            rootToPreset.set(dir, preset.id)
-          } catch { /* most presets ship none */ }
-        }))
-        await loadBundles()
-      }).catch(() => { /* roster absence is fine */ })
-      // …and follow live selection: a session naming a preset adds its dir.
-      presetCtx.on('agent-preset/selected', (_sessionId: unknown, presetId: unknown) => {
-        if (typeof presetId !== 'string') return
-        void presets.resolve(presetId).then((preset) => {
-          const dir = join(dirname(preset.path), 'lavs-bundles')
-          return stat(dir).then(() => dir).catch(() => undefined)
-        }).then((dir) => {
-          if (dir === undefined) return
-          if (extraRoots.has(dir)) return
-          extraRoots.add(dir)
-          rootToPreset.set(dir, presetId)
-          void loadBundles()
-        }).catch(() => { /* resolve failures just skip the addition */ })
-      })
-    })
-  }
+  // Explicit extra roots (e.g. a profile's own lavs-bundles): scanned on
+  // every reload alongside the base roots, no scope attached.
+  const declaredExtra = config.extraBundleDirs === undefined
+    ? []
+    : Array.isArray(config.extraBundleDirs) ? config.extraBundleDirs : [config.extraBundleDirs]
+  for (const dir of declaredExtra) extraRoots.add(resolve(dir))
 
   const hasViewFile = async (entry: BundleEntry): Promise<boolean> => {
     try {
@@ -728,5 +696,5 @@ export function apply(ctx: Context, config: Config): void {
     )
   })
 
-  if (config.followPresets !== true) void loadBundles()
+  void loadBundles()
 }

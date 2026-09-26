@@ -1,12 +1,16 @@
 /**
- * Browser LAVS plugin: a session-header entry opening the views drawer.
- * Bundle visibility is data-driven — the host scopes list/call by the
- * session's workspace cwd and agent preset, and the header entry renders
- * nothing for sessions whose project carries no LAVS bundles. The spec's
- * postMessage bridge (`lavs-call` → `lavs-result`/`lavs-error`) is routed
- * to the `/lavs` Connection channel served by the `lavs-host` adapter, so
- * query/mutation execute the manifest's local script handlers unchanged —
- * dsh becomes a spec-conformant LAVS dispatch host.
+ * Browser LAVS plugin: the LAVS views as a native right-Sidebar tab type.
+ *
+ * The tab reaches the Sidebar through its public path only — the definition
+ * into `ctx.sidebarRightTabs`, the body into the keyed
+ * `sidebar.right.pane.tab` seat under the definition's `id` — the same
+ * route the shipped `ui-sidebar-files` type takes; nothing here touches the
+ * Sidebar's store, panes, or sequence. Layout chrome (width, collapse,
+ * splits, persistence) belongs to the Sidebar; this package owns only the
+ * content: bundle discovery scoped per session, the spec §7.4 postMessage
+ * bridge (`lavs-call` → `lavs-result`/`lavs-error`) routed to the `/lavs`
+ * Connection channel served by the `lavs-host` adapter, and the
+ * `/lavs/events` SSE fan-out into mounted iframes.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -16,31 +20,29 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the session plugin's Context merge (ctx.sessions).
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-// Type-only: the header-actions SlotMap row must be in the program.
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: the sidebar-right client face (ctx.sidebarRightTabs) must be in the program.
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import { appRef } from './context.ts'
+import { LAVS_ID, lavsDefinition } from './definition.ts'
 import { en, NS, zh } from './locales.ts'
-import { LavsHeaderAction } from './HeaderAction.tsx'
+import { LavsTabBody } from './LavsTabBody.tsx'
 
-export type { LavsWithBundle as LavsBundleCard } from './Drawer.tsx'
-
-/** Required services: the header action slot, the connection RPC caller, the session registry, and the locale service. */
-export const inject = ['slots', 'connection', 'sessions', 'locale']
+/** Required services: the Sidebar tab registry, the tab-body slot, the connection RPC caller, the session registry, and the locale service. */
+export const inject = ['slots', 'connection', 'sessions', 'locale', 'sidebarRightTabs']
 
 /**
  * Client plugin body: publish the app-lifetime context handle, register the
- * dictionaries, and mount the header entry. The registration rides the slot
- * service's effect wrapper, so plugin unload removes the entry.
+ * dictionaries, and mount the tab type. Every registration rides an effect
+ * wrapper, so plugin unload removes the type and its body.
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
   appRef.current = ctx
+  const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-lavs: dictionaries')
-  ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
-    name: 'conversation.session.header.actions',
-    id: 'lavs',
-    // After ui-jobs (20): process work reads before data views.
-    order: 30,
-    locale: NS,
-  }, LavsHeaderAction))
+  ctx.effect(() => ctx.sidebarRightTabs.register(lavsDefinition(t)), 'ui-lavs: tab type')
+  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
+    { name: 'sidebar.right.pane.tab', key: LAVS_ID, locale: NS },
+    LavsTabBody,
+  )), 'ui-lavs: tab body')
 }

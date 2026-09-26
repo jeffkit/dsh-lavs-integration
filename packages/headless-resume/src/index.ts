@@ -130,7 +130,7 @@ async function run(ctx: Context, task: string, options: RunOptions, io: Headless
   // This bundle composes no preset roster, so the model-facing rows sit in the
   // host plane and the agent reads them from the global layer. A deployment
   // that DOES configure one has to join it here first
-  // (@deepseek-ai/dsh-agent-presets README, "Composing a child agent").
+  // (@deepseek-ai/dsh-agent-preset README, "Composing a child agent").
   const agentOptions = { provider: selection.provider, model: selection.model }
   const setup = (agentCtx: Context) => {
     const selected: ModelSelectionRef = { current: selection, assembled: undefined }

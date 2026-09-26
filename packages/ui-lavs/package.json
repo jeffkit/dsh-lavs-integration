@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-ui-lavs",
-  "description": "LAVS Views tab for DeepSeek Harness: one conversation.view tab mounting LAVS view bundles in an iframe, bridged to the lavs-host adapter over the Connection RPC",
+  "description": "LAVS Views tab for DeepSeek Harness: a native right-Sidebar tab type whose body mounts LAVS view bundles in iframes, bridged to the lavs-host adapter over the Connection RPC",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,9 @@
       "inject": [
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-conversation"
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
       ],
       "platform": "web"
     }
@@ -32,8 +34,8 @@
     "@deepseek-ai/dsh-client-connection": "*",
     "@deepseek-ai/dsh-client-locale": "*",
     "@deepseek-ai/dsh-client-store": "*",
-    "@deepseek-ai/dsh-client-ui-conversation": "*",
     "@deepseek-ai/dsh-client-ui-renderer": "*",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "*",
     "@deepseek-ai/dsh-client-ui-slots": "*",
     "react": "^18.2.0"
   },

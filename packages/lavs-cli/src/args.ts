@@ -1,6 +1,8 @@
 /**
- * lavs CLI argument parsing — pure and side-effect free so tests can drive
- * it without touching the filesystem or the network.
+ * lavs CLI argument handling. `parseArgs` is pure — no filesystem, no env —
+ * so tests drive it without machine state; `resolveEndpoint` is where the
+ * documented sources meet (flags → env → discovery file) and is tested with
+ * injected env and a temp discovery file.
  * @module dsh-plugin-lavs-cli/args
  */
 
@@ -33,14 +35,22 @@ Discovery: --url/--token flags → LAVS_HOST_URL / LAVS_HOST_TOKEN env →
 ~/.dsh/lavs-host.json (written by the lavs-host adapter at boot).`
 
 export interface ParsedArgs {
-  url: string
-  token: string
+  /** Host base URL: flags only; env and discovery resolve later via {@link resolveEndpoint}. */
+  url: string | undefined
+  /** Host bearer token: flags only; env and discovery resolve later via {@link resolveEndpoint}. */
+  token: string | undefined
   positional: string[]
   flags: Set<string>
   preset: string | undefined
   workspace: string | undefined
   input: string | undefined
   json: boolean
+}
+
+/** The resolved endpoint: a base URL and its bearer token. */
+export interface Endpoint {
+  url: string
+  token: string
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -83,19 +93,35 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (arg.startsWith('--')) throw new CliError(`unknown option "${arg}"`)
     positional.push(arg)
   }
-  // Help must work host-less: bypass discovery entirely.
-  if (flags.has('help')) {
-    return { url: '', token: '', positional, flags, preset, workspace, input, json: false }
-  }
-  if (url === undefined || token === undefined) {
-    const discoveryPath = join(homedir(), '.dsh', 'lavs-host.json')
+  return { url, token, positional, flags, preset, workspace, input, json: flags.has('json') }
+}
+
+/**
+ * Resolve the host endpoint for a parsed invocation, first source wins:
+ * `--url`/`--token` flags, the `LAVS_HOST_URL` / `LAVS_HOST_TOKEN` env pair,
+ * then the discovery file (path overridable with `LAVS_HOST_DISCOVERY`).
+ * The discovery read only happens when flags and env left something
+ * unresolved, so fully-flagged invocations never touch the filesystem.
+ * @param args - a parsed invocation.
+ * @returns the endpoint every request rides on.
+ */
+export function resolveEndpoint(args: ParsedArgs): Endpoint {
+  const envUrl = process.env.LAVS_HOST_URL
+  const envToken = process.env.LAVS_HOST_TOKEN
+  let discUrl: string | undefined
+  let discToken: string | undefined
+  if (args.url === undefined || args.token === undefined) {
+    const discoveryPath = process.env.LAVS_HOST_DISCOVERY ?? join(homedir(), '.dsh', 'lavs-host.json')
     try {
       const found = JSON.parse(readFileSync(discoveryPath, 'utf8')) as Discovery
-      if (url === undefined) url = `http://127.0.0.1:${found.port}`
-      if (token === undefined) token = found.token
-    } catch {
-      throw new CliError(`no host discovery: ${discoveryPath} is missing and no --url/--token or env override given. Is a dsh web profile with the lavs bundle running?`)
-    }
+      discUrl = `http://127.0.0.1:${found.port}`
+      discToken = found.token
+    } catch { /* reported below when nothing else supplied the endpoint */ }
   }
-  return { url: url as string, token: token as string, positional, flags, preset, workspace, input, json: flags.has('json') }
+  const url = args.url ?? envUrl ?? discUrl
+  const token = args.token ?? envToken ?? discToken
+  if (url === undefined || token === undefined) {
+    throw new CliError('no host endpoint: pass --url/--token, set LAVS_HOST_URL/LAVS_HOST_TOKEN, or ensure the discovery file (~/.dsh/lavs-host.json) exists. Is a dsh web profile with the lavs bundle running?')
+  }
+  return { url, token }
 }

@@ -11,7 +11,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
-import { parseArgs, CliError, USAGE } from './args.ts'
+import { parseArgs, resolveEndpoint, CliError, USAGE } from './args.ts'
 
 interface BundleInfo {
   name: string
@@ -112,7 +112,8 @@ async function main(): Promise<number> {
   }
   const [verb, bundle, endpoint] = args.positional
   if (verb === 'url') {
-    console.log(`${args.url} (pid/discovery in ~/.dsh/lavs-host.json)`)
+    const resolved = resolveEndpoint(args)
+    console.log(`${resolved.url} (pid/discovery in ${process.env.LAVS_HOST_DISCOVERY ?? '~/.dsh/lavs-host.json'})`)
     return 0
   }
   if (verb === 'init') {
@@ -120,8 +121,10 @@ async function main(): Promise<number> {
     initBundle(bundle, args.positional[2] === undefined ? undefined : args.positional[2])
     return 0
   }
+  // Every remaining verb rides the discovered host endpoint.
+  const host = resolveEndpoint(args)
   if (verb === 'list') {
-    const payload = await request(args.url, args.token, '/list', {
+    const payload = await request(host.url, host.token, '/list', {
       ...(args.preset === undefined ? {} : { presetId: args.preset }),
       ...(args.workspace === undefined ? {} : { workspaceCwd: args.workspace }),
     })
@@ -131,7 +134,7 @@ async function main(): Promise<number> {
   }
   if (verb === 'schema') {
     if (bundle === undefined) throw new CliError('usage: lavs schema <bundle>')
-    const payload = await request(args.url, args.token, `/schema?bundle=${encodeURIComponent(bundle)}`)
+    const payload = await request(host.url, host.token, `/schema?bundle=${encodeURIComponent(bundle)}`)
     if (args.json) { console.log(JSON.stringify(payload, null, 2)); return 0 }
     printSchema(payload as BundleSchema)
     return 0
@@ -144,7 +147,7 @@ async function main(): Promise<number> {
         throw new CliError(`--input is not valid JSON: ${e instanceof Error ? e.message : String(e)}`)
       }
     }
-    const payload = await request(args.url, args.token, '/call', { bundle, endpoint, input: parsed })
+    const payload = await request(host.url, host.token, '/call', { bundle, endpoint, input: parsed })
     console.log(args.json ? JSON.stringify(payload, null, 2) : JSON.stringify((payload as { result?: unknown }).result))
     return 0
   }

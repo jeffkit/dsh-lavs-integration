@@ -1,15 +1,14 @@
 # The LAVS bundle: one host adapter plus two browser tabs, riding after the
 # web-app bundle layer. bundlesDir is multi-root; ~/.dsh/lavs-bundles is the
 # stable user-level default, and LAVS_BUNDLES_DIR (a path or a colon/semicolon
-# separated list) extends it. followPresets also scans <preset-dir>/lavs-bundles
-# and follows agent-preset selection per session.
+# separated list) extends it. Profile-local views go in extraBundleDirs
+# (e.g. ~/.dsh/profiles/<name>/lavs-bundles) — explicit, not inferred.
 
 - insert:
     - id: lavs-host
       name: dsh-plugin-lavs-host
       config:
         bundlesDir: !!js process.env.LAVS_BUNDLES_DIR
-        followPresets: true
 
     - id: ui-lavs
       name: dsh-plugin-ui-lavs
