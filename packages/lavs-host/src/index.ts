@@ -2,10 +2,12 @@
  * LAVS host adapter (`ctx.lavsHost`): mounts Local Agent View Service bundles
  * into the dsh web host.
  *
- * - Discovers `lavs.json` manifests under the configured bundles directory.
+ * - Discovers `lavs.json` manifests under the session workspace's
+ *   `.lavs/bundles/` directory — views are PROJECT property: what a session
+ *   sees is exactly what its working directory declares, nothing global.
  * - Serves each bundle's static view files under `/lavs-view/<bundle>/…`
  *   (same origin as the web app, so the iframe postMessage bridge works).
- * - Exposes the `list` / `call` endpoints on the `/rpc/lavs` Connection
+ * - Exposes the `list` / `call` endpoints on the `/lavs` Connection
  *   channel: the browser Views tab forwards the spec's `lavs-call` messages
  *   here, and this adapter executes the manifest's script handlers through
  *   `lavs-runtime`'s ScriptExecutor.
@@ -21,7 +23,7 @@ import { randomBytes } from 'node:crypto'
 import { homedir } from 'node:os'
 import { readdir, stat } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
+import { dirname, extname, join, normalize, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { visibleEntries } from './scope.ts'
 // Type-only: pulls the webServer Context merge (ctx.webServer).
@@ -43,19 +45,6 @@ export const inject = ['webServer', 'connection', 'tools']
 /** Adapter config. */
 export interface Config {
   /**
-   * Directory (or directories) containing one bundle sub-directory per
-   * `lavs.json` manifest. Absent or empty falls back to the stable defaults:
-   * `./bundles` beside the launch cwd and `~/.dsh/lavs-bundles`.
-   */
-  bundlesDir?: string | string[]
-  /**
-   * Additional bundle roots scanned on top of `bundlesDir` (one bundle
-   * sub-directory per `lavs.json` manifest each). A profile that ships views
-   * lists its own directory here — e.g. `~/.dsh/profiles/<name>/lavs-bundles`
-   * — keeping profile-local bundles explicit instead of inferred.
-   */
-  extraBundleDirs?: string | string[]
-  /**
    * Register every bundle query/mutation endpoint as a `lavs_<endpoint>`
    * agent tool. Off by default: N tools × schema is a fixed context tax;
    * the agent path is the `lavs` CLI plus a skill, which load per scenario.
@@ -73,8 +62,6 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
-  bundlesDir: z.union([z.string(), z.array(z.string())]),
-  extraBundleDirs: z.union([z.string(), z.array(z.string())]),
   registerAgentTools: z.boolean(),
   cli: z.boolean(),
   cliPort: z.number(),
@@ -157,10 +144,8 @@ const MIME: Record<string, string> = {
 interface BundleEntry {
   manifest: LAVSManifest
   dir: string
-  /** The preset id this bundle came from (undefined = not preset-scoped). */
-  sourcePreset?: string
-  /** The workspace cwd this bundle came from (undefined = not project-scoped). */
-  sourceWorkspace?: string
+  /** The workspace cwd this bundle came from (always set: views are project property). */
+  sourceWorkspace: string
 }
 
 /** Adapt a raw manifest record to the browser-facing shape. */
@@ -263,63 +248,59 @@ interface LavsAgentAction {
 /**
  * Mount the LAVS host adapter.
  * @param ctx - Host context carrying the web server and connection services.
- * @param config - Adapter config (bundles directory).
  */
 export function apply(ctx: Context, config: Config): void {
   const loader = new ManifestLoader()
   const executor = new ScriptExecutor()
   const bundles = new Map<string, BundleEntry>()
-  const declared = config.bundlesDir === undefined ? [] : Array.isArray(config.bundlesDir) ? config.bundlesDir : [config.bundlesDir]
-  const baseRoots = (declared.length > 0 ? declared : ['bundles', join(homedir(), '.dsh', 'lavs-bundles')]).map(p => resolve(p))
-  const extraRoots = new Set<string>()
+  /** Project bundle roots discovered so far — one per session workspace. */
+  const projectRoots = new Set<string>()
   const rootToWorkspace = new Map<string, string>()
-  /** Workspace cwds probed and confirmed to carry NO project bundle dir. */
-  const absentWorkspaces = new Set<string>()
   /** One watcher per live project bundle dir — changes re-scan and fan out. */
   const workspaceWatchers = new Map<string, FSWatcher>()
   const toolDisposers: Array<() => void> = []
 
-  const scanRoot = async (root: string, workspaceCwd?: string): Promise<void> => {
-    let dirs: string[] = []
+  const scanRoot = async (root: string, workspaceCwd: string): Promise<void> => {
+    let entries: Array<{ name: string }> = []
     try {
-      dirs = (await readdir(root, { withFileTypes: true }))
-        .filter(d => d.isDirectory())
-        .map(d => d.name)
+      entries = await readdir(root, { withFileTypes: true })
     } catch {
       return // an absent or unreadable root simply contributes nothing
     }
-    for (const dir of dirs) {
+    for (const entry of entries) {
+      const dir = join(root, entry.name)
+      // stat (not the dirent): a bundle may be a symlink into a shared store.
+      const info = await stat(dir).catch(() => undefined)
+      if (info === undefined || !info.isDirectory()) continue
       try {
-        const manifest = await loader.load(join(root, dir, 'lavs.json')) as LAVSManifest
+        const manifest = await loader.load(join(dir, 'lavs.json')) as LAVSManifest
         const name = (manifest as unknown as { name: string }).name
         bundles.set(name, {
-          manifest, dir: join(root, dir),
-          ...(workspaceCwd === undefined ? {} : { sourceWorkspace: workspaceCwd }),
+          manifest, dir,
+          sourceWorkspace: workspaceCwd,
         })
       } catch (e) {
-        ctx.logger.warn(`lavs-host: skipping bundle "${dir}": ${e instanceof Error ? e.message : String(e)}`)
+        ctx.logger.warn(`lavs-host: skipping bundle "${entry.name}": ${e instanceof Error ? e.message : String(e)}`)
       }
     }
   }
 
   /**
-   * Ensure the workspace's project-scoped root (`<cwd>/.lavs/bundles`) is
-   * scanned before the caller lists. Only CONFIRMED-ABSENT directories are
-   * remembered (one stat per project, ever); a present directory re-scans
-   * on every list so manifests added or fixed mid-session appear without a
-   * restart. Workspace bundles shadow preset/base bundles of the same name
-   * (the later scan wins the name-keyed map).
+   * Ensure the workspace's project root (`<cwd>/.lavs/bundles`) is scanned
+   * before the caller lists — THE discovery path: a session sees exactly the
+   * bundles its working directory declares. Every list re-stats the directory
+   * (one syscall), so a project that gains `.lavs/bundles/` mid-session is
+   * discovered on the next list without a restart; once present, the fs
+   * watcher keeps it live.
    */
   const ensureWorkspaceRoot = async (workspaceCwd: string): Promise<void> => {
-    if (absentWorkspaces.has(workspaceCwd)) return
     const dir = join(workspaceCwd, '.lavs', 'bundles')
     try {
       await stat(dir)
     } catch {
-      absentWorkspaces.add(workspaceCwd)
       return
     }
-    extraRoots.add(dir)
+    projectRoots.add(dir)
     rootToWorkspace.set(dir, workspaceCwd)
     // Hot project data: watch the bundle dir so manifests added, fixed, or
     // removed mid-session reach the drawer without a reopen. Debounced —
@@ -349,24 +330,16 @@ export function apply(ctx: Context, config: Config): void {
 
   const loadBundles = async (): Promise<void> => {
     // Re-load from scratch: dispose every previously registered agent tool
-    // so a preset's bundles (and their lavs_* tools) leave with the reload.
+    // so a project's bundles (and their lavs_* tools) leave with the reload.
     for (const dispose of toolDisposers.splice(0)) {
       try { dispose() } catch { /* a disposed registry entry is fine to miss */ }
     }
     bundles.clear()
     usedToolNames.clear()
-    for (const root of baseRoots) await scanRoot(root)
-    for (const root of extraRoots) await scanRoot(root, rootToWorkspace.get(root))
-    ctx.logger.info(`lavs-host: loaded ${bundles.size} bundle(s) from ${baseRoots.length + extraRoots.size} root(s)`)
+    for (const root of projectRoots) await scanRoot(root, rootToWorkspace.get(root) as string)
+    ctx.logger.info(`lavs-host: loaded ${bundles.size} bundle(s) from ${projectRoots.size} project root(s)`)
     for (const [bundleName, entry] of bundles) registerBundleTools(entry, bundleName)
   }
-
-  // Explicit extra roots (e.g. a profile's own lavs-bundles): scanned on
-  // every reload alongside the base roots, no scope attached.
-  const declaredExtra = config.extraBundleDirs === undefined
-    ? []
-    : Array.isArray(config.extraBundleDirs) ? config.extraBundleDirs : [config.extraBundleDirs]
-  for (const dir of declaredExtra) extraRoots.add(resolve(dir))
 
   const hasViewFile = async (entry: BundleEntry): Promise<boolean> => {
     try {
@@ -748,6 +721,4 @@ export function apply(ctx: Context, config: Config): void {
       },
     })
   })
-
-  void loadBundles()
 }

@@ -7,8 +7,8 @@ DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless r
 
 | 包 | 类型 | 作用 |
 |----|------|------|
-| `packages/lavs-host` | host 插件 | 发现 lavs.json bundle、同源 serve `/lavs-view/<bundle>/…`、`/lavs` Connection RPC（list/call → lavs-runtime ScriptExecutor）、loopback CLI 端点（`~/.dsh/lavs-host.json` 发现文件）；`lavs_*` agent tools 为 **opt-in**（`registerAgentTools: true`），默认关闭 |
-| `packages/ui-lavs` | client 插件 | 会话头部的 "视图" 入口按钮 + 右侧可收起抽屉：iframe 装载 LAVS bundle，postMessage 桥接 RPC；**数据驱动显隐**——按会话的 workspace/preset 作用域列出，无数据则入口整体不出现 |
+| `packages/lavs-host` | host 插件 | 按**会话工作目录**发现 `.lavs/bundles/` 下的 lavs.json bundle、同源 serve `/lavs-view/<bundle>/…`、`/lavs` Connection RPC（list/call → lavs-runtime ScriptExecutor）、loopback CLI 端点（`~/.dsh/lavs-host.json` 发现文件）；`lavs_*` agent tools 为 **opt-in**（`registerAgentTools: true`），默认关闭 |
+| `packages/ui-lavs` | client 插件 | **原生右侧栏 tab**（`ctx.sidebarRightTabs` 两段式注册，`keepMounted`）：iframe 装载 LAVS bundle，postMessage 桥接 RPC；视图严格跟随会话工作目录——项目没有 bundle 就显示空态引导 |
 | `packages/ui-tasks` | client 插件 | conversation.view 里的 "Tasks" tab：todo 投影一等视图，交互走普通排队用户消息 |
 | `packages/headless-resume` | host 插件 | headless one-shot runner 变体：`--resume <session-id>` / `--print-session-id` |
 | `packages/lavs-cli` | CLI | `lavs list / schema / call` 三动词，零依赖薄客户端，经宿主 loopback 端点读写——**MCP 工具的上下文经济替代**（CLI + Skill 按场景加载，替代 N×M 常驻工具 schema） |
@@ -38,8 +38,8 @@ dsh plugin --profile lavs add file:$PWD/bundles/lavs
 # 编辑 ~/.dsh/profiles/lavs/package.json 的 dsh.profile.bundles：
 #   ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-bundle-lavs"]
 
-# 3. 指定 LAVS bundle 目录（可选，默认扫 ./bundles 与 ~/.dsh/lavs-bundles）
-echo 'LAVS_BUNDLES_DIR=/path/to/lavs/bundles' >> ~/.dsh/.env
+# 3. 视图不需要任何全局配置——bundle 是项目属性：在 Agent 的工作目录下放
+#    .lavs/bundles/<bundle>/lavs.json 即可（lavs init 可生成脚手架）
 
 # 4. 装 Agent skill（dsh 原生发现路径）
 mkdir -p ~/.dsh/skills && cp -R skills/lavs ~/.dsh/skills/
@@ -89,10 +89,15 @@ dsh --profile headless-rs --print-session-id "task"   # 捕获 stderr 的 sessio
 - [ ] 浏览器端 header 按钮与抽屉的点击级验证（建会话需原生目录选择器，需真人一次；
   自动化已验证到 /lavs-view 200 与 CLI 全链路）
 
-## 视图作用域语义（v2 UX）
+## 视图作用域语义（v3：纯项目作用域）
 
-- **三级作用域**：workspace（`<项目>/.lavs/bundles/`）＞ preset（`<preset>/lavs-bundles/`）＞
-  base（部署级 bundlesDir）；同名按此顺序遮蔽
-- **入口即数据**：会话头部"视图"按钮只在当前会话作用域内存在可渲染 bundle 时出现；
-  打开为右侧抽屉（Esc/✕ 收起，"整页打开"直链 `/lavs-view/<bundle>/`）
-- 彻底脱离 `conversation.view` tab——不再有 tab 下的 composer 问题
+- **视图是项目属性**：一个会话能看到的 bundle，就是它工作目录下
+  `.lavs/bundles/` 里声明的那些——没有全局根、没有部署级 bundlesDir。
+  换个项目 = 换一组视图；目录不存在 = 空态引导（提示在项目下建 bundle）
+- **热更新**：`.lavs/bundles/` 被 fs.watch 盯着，项目里新写/修正的
+  manifest 不重启即可出现在切换器里
+- **挂载形态**：dsh 0.1.7+ 的原生右侧栏——`ctx.sidebarRightTabs` 注册
+  `keepMounted` 的 `lavs` page 类型 + guide 入口，布局（宽度/分屏/持久化）
+  全部交还 dockkit，本插件只负责内容
+- 历史：v1 为 conversation.view tab，v2 为自绘右侧抽屉（含 preset/部署级
+  三级作用域）——均随上游演进废弃；preset 作用域随上游 AgentPreset 去目录化一并移除
