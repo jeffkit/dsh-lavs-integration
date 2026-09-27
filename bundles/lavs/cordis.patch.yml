@@ -4,8 +4,8 @@
 
 - insert:
     - id: lavs-host
-      name: "@jeffkit/dsh-plugin-lavs-host"
+      name: dsh-plugin-lavs-host
 
     - id: ui-lavs
-      name: "@jeffkit/dsh-plugin-ui-lavs"
+      name: dsh-plugin-ui-lavs
 

@@ -1,5 +1,5 @@
 {
-  "name": "@jeffkit/dsh-plugin-lavs-host",
+  "name": "dsh-plugin-lavs-host",
   "description": "LAVS host adapter for DeepSeek Harness: discovers lavs.json view bundles, serves them same-origin for the iframe bridge, exposes list/call on the /lavs Connection channel plus a loopback CLI endpoint",
   "version": "0.1.0",
   "private": true,
@@ -34,8 +34,5 @@
   },
   "files": [
     "lib"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+  ]
 }

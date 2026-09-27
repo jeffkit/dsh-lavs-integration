@@ -33,7 +33,7 @@ mutation 记录内聚在 `service.call`：**不管哪个面**（浏览器 RPC / 
 # 渠道一：npm（推荐——插件已发布，pnpm 自动替换 workspace 版本）
 # 1. 建 profile 并装视图层（web-app 必须与 dsh 运行时同版本；latest 标签停留在
 #    上游 0.0.x 时代，务必用显式版本）
-dsh plugin --profile lavs add @jeffkit/dsh-bundle-lavs
+dsh plugin --profile lavs add dsh-bundle-lavs
 dsh plugin --profile lavs add @deepseek-ai/dsh-web-app@<你的 dsh 版本>
 # 2. 视图是项目属性：在 Agent 的工作目录下放 .lavs/bundles/<bundle>/lavs.json
 #    （lavs init 可生成脚手架）；无 bundle 的项目显示空态引导
@@ -46,7 +46,7 @@ dsh --profile lavs --port 3099 --no-open
 # 渠道二：本仓开发（clone 后）
 pnpm install && pnpm typecheck && pnpm test && pnpm build
 # workspace:^ 依赖只在仓内 pnpm workspace 里有意义——装 profile 用打包产物：
-pnpm --filter @jeffkit/dsh-plugin-lavs-host pack   # 等三个插件 + bundle
+pnpm --filter dsh-plugin-lavs-host pack   # 等三个插件 + bundle
 # 然后按「渠道一」安装 tarball；跨包改动用 profile package.json 的
 # pnpm.overrides 把包名指向本地 tarball（见 git 历史里的 e2e 配方）
 ```
@@ -79,10 +79,10 @@ pnpm --filter @jeffkit/dsh-plugin-lavs-host pack   # 等三个插件 + bundle
 
 ```sh
 # 前置：npm 已登录（npm whoami）；@jeffkit scope 归属你的账号/组织
-pnpm --filter "@jeffkit/dsh-plugin-lavs-host" publish   # 先插件（workspace:^ 自动替换为 ^0.1.0）
-pnpm --filter "@jeffkit/dsh-plugin-lavs-cli" publish
-pnpm --filter "@jeffkit/dsh-plugin-ui-lavs" publish
-pnpm --filter "@jeffkit/dsh-bundle-lavs" publish        # 后 bundle
+pnpm --filter "dsh-plugin-lavs-host" publish   # 先插件（workspace:^ 自动替换为 ^0.1.0）
+pnpm --filter "dsh-plugin-lavs-cli" publish
+pnpm --filter "dsh-plugin-ui-lavs" publish
+pnpm --filter "dsh-bundle-lavs" publish        # 后 bundle
 # 版本推进：改各包 version + bundle 的 workspace:^ 会自动带出新版本范围
 ```
 

@@ -1,5 +1,5 @@
 {
-  "name": "@jeffkit/dsh-plugin-ui-tasks",
+  "name": "dsh-plugin-ui-tasks",
   "description": "Tasks view tab for DeepSeek Harness: the session's todo projection as a first-class app view; interactions ride the ordinary queued user message path",
   "version": "0.1.0",
   "private": true,
@@ -48,8 +48,5 @@
   },
   "files": [
     "lib"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+  ]
 }

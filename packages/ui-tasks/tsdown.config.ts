@@ -13,7 +13,7 @@ const PEERS = [
 
 export default defineConfig([
   nodeLib({ index: 'src/index.ts', invariant: 'src/invariant.ts' }, PEERS),
-  clientBundle('@jeffkit/dsh-plugin-ui-tasks', [
+  clientBundle('dsh-plugin-ui-tasks', [
     '@deepseek-ai/dsh-api-remotes',
     '@deepseek-ai/dsh-client-locale',
     '@deepseek-ai/dsh-client-ui-conversation',

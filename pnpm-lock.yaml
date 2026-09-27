@@ -101,13 +101,13 @@ importers:
 
   bundles/lavs:
     dependencies:
-      '@jeffkit/dsh-plugin-lavs-cli':
+      dsh-plugin-lavs-cli:
         specifier: workspace:^
         version: link:../../packages/lavs-cli
-      '@jeffkit/dsh-plugin-lavs-host':
+      dsh-plugin-lavs-host:
         specifier: workspace:^
         version: link:../../packages/lavs-host
-      '@jeffkit/dsh-plugin-ui-lavs':
+      dsh-plugin-ui-lavs:
         specifier: workspace:^
         version: link:../../packages/ui-lavs
 
