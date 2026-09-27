@@ -8,10 +8,6 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # typecheck is intentionally NOT here: it anchors @deepseek-ai/dsh-* types
-    # to a local dsh worktree checkout via tsconfig paths (see
-    # tsconfig.base.json — the npm latest tag is un-installable). Wire a dsh
-    # checkout step here once anchoring moves to published packages.
     steps:
       - uses: actions/checkout@v4
       # pnpm version comes solely from package.json `packageManager`
@@ -23,5 +19,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # types ship in the published @deepseek-ai/* packages (pinned 0.1.7-rc.2
+      # in the root devDependencies), so typecheck runs on CI since the
+      # tsconfig-paths -> local-dsh-worktree anchoring was retired.
+      - run: pnpm run typecheck
       - run: pnpm run test
       - run: pnpm run build

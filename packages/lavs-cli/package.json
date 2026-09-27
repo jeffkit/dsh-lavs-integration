@@ -1,5 +1,5 @@
 {
-  "name": "dsh-plugin-lavs-cli",
+  "name": "@jeffkit/dsh-plugin-lavs-cli",
   "description": "lavs CLI: agent-facing thin client over the running lavs-host adapter (list/schema/call) — context-cheap alternative to registered MCP tools",
   "version": "0.1.0",
   "private": true,
@@ -21,5 +21,15 @@
     "@types/node": "^22.20.0",
     "tsdown": "^0.12.9",
     "typescript": "^5.9.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffkit/dsh-lavs-integration.git"
+  },
+  "files": [
+    "lib"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

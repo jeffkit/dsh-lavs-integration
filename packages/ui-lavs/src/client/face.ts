@@ -6,6 +6,8 @@
  * needs and throws a readable error when the plugin is not mounted yet.
  */
 
+import type {} from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { appRef } from './context.ts'
 
 /** One bundle as the host's `list` returns it. */
@@ -18,10 +20,9 @@ export interface LavsWithBundle {
   endpoints: Array<{ id: string; method: string; description: string | undefined }>
 }
 
-/** The session-summary face this plugin needs (cwd + preset). */
+/** The session-summary face this plugin needs (cwd only — v3 scoping is pure project scope). */
 interface SummaryFace {
   cwd?: string
-  agentPreset?: string
 }
 
 /** Connection RPC face as used here (narrowed from the client context). */
@@ -41,21 +42,20 @@ function rpcOf(): RpcFace {
   return ctx.get('connection') as RpcFace
 }
 
-/** Read the session's summary off the store snapshot (fresh per call). */
+/** Read the session's cwd off the store (dsh 0.1.7: `SessionStore.get` + `Session.header`). */
 function summaryOf(ctx: NonNullable<typeof appRef.current>, sessionId: string): SummaryFace {
-  const state = ctx.sessions.list.getSnapshot() as { byId?: Record<string, SummaryFace> }
-  return state.byId?.[sessionId] ?? {}
+  const session = ctx.sessions.get(sessionId as SessionId)
+  return { cwd: session?.header.cwd }
 }
 
 /**
  * List the bundles visible to this session: the host scopes by the
- * session's workspace cwd and composed preset, on top of the deployment
- * base roots.
+ * session's workspace cwd — v3 is pure project scope (`.lavs/bundles/`
+ * under the working directory, no preset/deployment roots).
  */
 export async function listBundlesFor(ctx: NonNullable<typeof appRef.current>, sessionId: string): Promise<LavsWithBundle[]> {
   const summary = summaryOf(ctx, sessionId)
   const result = await rpcOf().rpc.call('/lavs', 'list', {
-    ...(summary.agentPreset === undefined ? {} : { presetId: summary.agentPreset }),
     ...(summary.cwd === undefined ? {} : { workspaceCwd: summary.cwd }),
   })
   if (!result.ok) throw new Error(result.error?.message ?? 'lavs list failed')

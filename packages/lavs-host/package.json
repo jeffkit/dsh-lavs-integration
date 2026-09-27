@@ -1,5 +1,5 @@
 {
-  "name": "dsh-plugin-lavs-host",
+  "name": "@jeffkit/dsh-plugin-lavs-host",
   "description": "LAVS host adapter for DeepSeek Harness: discovers lavs.json view bundles, serves them same-origin for the iframe bridge, exposes list/call on the /lavs Connection channel plus a loopback CLI endpoint",
   "version": "0.1.0",
   "private": true,
@@ -19,15 +19,23 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
-    "@deepseek-ai/dsh-client-connection": "*",
-    "@deepseek-ai/dsh-host-webserver": "*",
-    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/dsh-client-connection": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-tools": "^0.1.7-rc.2",
     "@deepseek-ai/schemastery": "*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/schemastery": "^3.18.2",
     "tsdown": "^0.12.9",
     "typescript": "^5.9.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffkit/dsh-lavs-integration.git"
+  },
+  "files": [
+    "lib"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -57,7 +57,7 @@ function printBundles(infos: BundleInfo[]): void {
       console.log(`  ${endpoint.method.padEnd(9)} ${info.name}.${endpoint.id}${endpoint.description === undefined ? '' : ` — ${endpoint.description}`}`)
     }
   }
-  if (infos.length === 0) console.log('no bundles visible (check LAVS_BUNDLES_DIR / bundlesDir config)')
+  if (infos.length === 0) console.log('no bundles visible: put bundles under <workspace>/.lavs/bundles/ (project scope)')
 }
 
 function printSchema(schema: BundleSchema): void {
@@ -101,7 +101,7 @@ function initBundle(dirArg: string, nameArg: string | undefined): void {
   console.log(`scaffolded bundle "${name}" at ${dir}`)
   console.log(`  ${manifestPath}   — declare query/mutation endpoints here`)
   console.log(`  ${join(dir, 'view', 'index.html')}   — the rendered view (postMessage bridge is wired by the host)`)
-  console.log('next: copy this dir under <project>/.lavs/bundles/ or the host bundlesDir, then `lavs list`')
+  console.log('next: copy this dir under <project>/.lavs/bundles/, then `lavs list`')
 }
 
 async function main(): Promise<number> {

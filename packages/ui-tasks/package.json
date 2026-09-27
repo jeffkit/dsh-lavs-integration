@@ -1,5 +1,5 @@
 {
-  "name": "dsh-plugin-ui-tasks",
+  "name": "@jeffkit/dsh-plugin-ui-tasks",
   "description": "Tasks view tab for DeepSeek Harness: the session's todo projection as a first-class app view; interactions ride the ordinary queued user message path",
   "version": "0.1.0",
   "private": true,
@@ -37,10 +37,19 @@
     "react": "^18.2.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
     "@types/react": "~18.3.1",
     "react": "^18.2.0",
     "tsdown": "^0.12.9",
     "typescript": "^5.9.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffkit/dsh-lavs-integration.git"
+  },
+  "files": [
+    "lib"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
