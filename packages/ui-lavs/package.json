@@ -2,7 +2,6 @@
   "name": "dsh-plugin-ui-lavs",
   "description": "LAVS Views tab for DeepSeek Harness: a native right-Sidebar tab type whose body mounts LAVS view bundles in iframes, bridged to the lavs-host adapter over the Connection RPC",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "main": "lib/index.js",
   "exports": {

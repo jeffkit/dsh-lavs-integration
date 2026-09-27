@@ -2,7 +2,6 @@
   "name": "dsh-bundle-lavs",
   "description": "dsh bundle: mounts the LAVS host adapter plus the Views and Tasks tabs into any web profile",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "dsh": {
     "bundle": {
