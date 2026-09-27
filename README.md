@@ -62,9 +62,11 @@ lavs call todo-list addTodo --input '{"text":"…","priority":1}'
 
 - **类型源**：pnpm 依赖保持纯 npm（真实可发布形态）；`@deepseek-ai/dsh-*` 与 vendored
   cordis/schemastery/loader 的**类型**经 `tsconfig.base.json` 的 `paths` 直指 dsh git master
-  工作树的 `lib/types/*.d.ts`（0.1.3-alpha.1）。不使用 npm dsh 包做 devDep——npm `latest`
-  标签滞留在 0.0.1-rc.1（其依赖的 `dsh-type-meta` 从未发布，安装即 404），显式版本也不必：
-  0.1.3 上 npm 后把 paths 换回普通 devDeps 即可
+  工作树的 `lib/types/*.d.ts`（0.1.3-alpha.1）。~~不使用 npm dsh 包做 devDep~~
+  **（2026-09-27 复核：该理由已失效**——npm `latest`=0.1.5-rc.3、`next`=0.1.7-rc.2 均可正常
+  安装（实测 `npm i @deepseek-ai/dsh@next` + `dsh --version` 通过），且各包携带完整
+  `lib/types/**/*.d.ts`；旧结论「latest 滞留 0.1.5 之前、依赖未发布的 dsh-type-meta 安装即 404」
+  只适用于 0.0.x 时代。paths 锚定→普通 npm devDeps 的迁移已具备条件，待办）
 - **单实例要求**：cordis/schemastery/plugin-loader 必须与 dsh 包的 d.ts 同一物理实例
   （paths 统一指到同一棵树），否则 `declare module` 扩增会落到另一实例上全部失效（已踩坑）
 - **peerDependencies 一律 `*`**：运行时由 dsh 安装树供给（profile node_modules 父目录
