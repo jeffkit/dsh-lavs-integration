@@ -1,48 +1,43 @@
 /**
- * Tasks view: the agent's todo list as a first-class application view.
+ * Tasks tab body: the agent's todo list as a first-class application view.
  *
- * Read path: the `todos` session projection (host-folded, whole-value —
- * every action re-renders from the durable log, so the view replays
- * identically after restart or fork).
+ * Read path: the `todos` session projection through the session-scoped
+ * standard kit's `useProjection` hook (host-folded, whole-value — every
+ * action re-renders from the durable log, so the view replays identically
+ * after restart or fork).
  *
- * Interaction path (the POC's thesis): no direct data mutation. Clicking a
- * toggle or submitting a new task sends one ordinary queued user message to
- * the agent; the agent performs the change with its own todo tool, and the
- * projection echoes back into this view. Every UI action is therefore a
+ * Interaction path (the plugin's thesis): no direct data mutation. Clicking
+ * a toggle or submitting a new task sends one ordinary queued user message
+ * to the agent; the agent performs the change with its own todo tool, and
+ * the projection echoes back into this view. Every UI action is therefore a
  * session-log event — auditable, replayable, and consistent with the chat
  * surface beside it.
  */
 
-import { useMemo, useState, useSyncExternalStore } from 'react'
-import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import { useMemo, useState } from 'react'
+import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: merges the `todos` projection key into SessionProjectionMap for
+// useProjection (single source, no consumer-side restated declare).
+import type { TodoItem } from '@deepseek-ai/dsh-tool-todo/client'
+import { sendQueuedMessage } from './face.ts'
 
-/** One todo item as the projection carries it (`@deepseek-ai/dsh-tool-todo`). */
-export interface TaskItemView {
-  content: string
-  status: 'pending' | 'in_progress' | 'completed'
-}
+/** Runtime props of the session-scoped tab-body seat plus this plugin's locale. */
+export type TasksTabBodyProps = PropsRuntime<'sidebar.right.pane.tab'> & PropsLocale<'tasks'>
 
-/** Session-bound handles injected by the tab registration. */
-export interface TasksViewInjected {
-  todos: ObservableSnapshot<TaskItemView[] | null>
-  send: (text: string) => Promise<void>
-}
-
-const EMPTY_TODOS: TaskItemView[] = []
+const EMPTY_TODOS: readonly TodoItem[] = []
 
 /** The next status a click cycles to. */
-function nextStatus(status: TaskItemView['status']): TaskItemView['status'] {
+function nextStatus(status: TodoItem['status']): TodoItem['status'] {
   if (status === 'pending') return 'in_progress'
   if (status === 'in_progress') return 'completed'
   return 'pending'
 }
 
-export function TasksView({
-  todos, send, t,
-}: ConvViewProps & InjectFace<TasksViewInjected> & PropsLocale<'tasks'>): JSX.Element {
-  const list = useSyncExternalStore(todos.subscribe, todos.getSnapshot) ?? null
+export function TasksTabBody({
+  sessionId, useProjection, t,
+}: TasksTabBodyProps): JSX.Element {
+  const projected = useProjection('todos')
+  const list = projected ?? null
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -60,7 +55,7 @@ export function TasksView({
     setBusy(true)
     setError(null)
     try {
-      await send(text)
+      await sendQueuedMessage(sessionId, text)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -68,7 +63,7 @@ export function TasksView({
     }
   }
 
-  function toggle(item: TaskItemView): void {
+  function toggle(item: TodoItem): void {
     const to = nextStatus(item.status)
     const key = `send.prefix.${item.status}` as const
     void dispatch(t(key, { content: item.content }) + ` → ${to}`)

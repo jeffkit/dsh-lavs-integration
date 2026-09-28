@@ -1,7 +1,7 @@
 {
   "name": "dsh-bundle-lavs",
   "description": "dsh bundle: mounts the LAVS host adapter plus the Views and Tasks tabs into any web profile",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "dsh": {
     "bundle": {
@@ -12,7 +12,8 @@
   "dependencies": {
     "dsh-plugin-lavs-cli": "workspace:^",
     "dsh-plugin-lavs-host": "workspace:^",
-    "dsh-plugin-ui-lavs": "workspace:^"
+    "dsh-plugin-ui-lavs": "workspace:^",
+    "dsh-plugin-ui-tasks": "workspace:^"
   },
   "repository": {
     "type": "git",

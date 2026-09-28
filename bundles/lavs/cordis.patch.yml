@@ -1,4 +1,4 @@
-# The LAVS bundle: one host adapter plus the Views tab (Tasks tab pending port to published dsh 0.1.7 APIs), riding after the
+# The LAVS bundle: one host adapter plus the Views and Tasks tabs, riding after the
 # web-app bundle layer. Bundle discovery is PROJECT-ONLY: each session sees
 # the `.lavs/bundles/` directory of its own workspace — no global roots.
 
@@ -8,4 +8,7 @@
 
     - id: ui-lavs
       name: dsh-plugin-ui-lavs
+
+    - id: ui-tasks
+      name: dsh-plugin-ui-tasks
 

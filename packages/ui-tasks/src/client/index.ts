@@ -1,53 +1,44 @@
 /**
- * Browser tasks plugin: one `conversation.view` tab rendering the `todos`
- * session projection as a first-class task application. Reads are projection
- * snapshots (zero client-side folding); every interaction is sent to the
- * agent as an ordinary queued user message through the session prompt verb,
- * so the whole surface stays inside the auditable, replayable session log.
+ * Browser tasks plugin: the session's `todos` projection as a native
+ * right-Sidebar tab type. Reads ride the standard session-scoped slot kit
+ * (`useProjection`); every interaction is sent to the agent as an ordinary
+ * queued user message through the sessions service, so the whole surface
+ * stays inside the auditable, replayable session log.
  */
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionId, RpcResult } from '@deepseek-ai/dsh-api-remotes/client'
 
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the renderer plugin's Context merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-// Type-only: pulls the session plugin's Context merge (ctx.sessions).
+// Type-only: merges the session-scoped standard kit (sessionId, useProjection)
+// into the slots system's SessionStandardProps.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-// Type-only: the 'conversation.view' SlotMap row (declared by the slot's
-// owning package) must be in the program for the register call to type.
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: the sidebar-right client face (ctx.sidebarRightTabs) must be in the program.
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
+// Type-only: pulls the client `sessions` Context merge (ISessions) for ctx.sessions.
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import { appRef } from './context.ts'
+import { TASKS_ID, tasksDefinition } from './definition.ts'
 import { en, NS, zh } from './locales.ts'
-import { TasksView, type TaskItemView, type TasksViewInjected } from './TasksView.tsx'
+import { TasksTabBody } from './TasksView.tsx'
 
-/** Required services: the conversation view slot, ordinary Session binding, and the locale service. */
-export const inject = ['slots', 'sessions', 'locale']
+/** Required services: the Sidebar tab registry, the tab-body slot, the session registry, and the locale service. */
+export const inject = ['slots', 'locale', 'sidebarRightTabs', 'sessions']
 
 /**
- * Client plugin body: register the tasks view tab. The registration rides
- * the slot service's effect wrapper, so plugin unload removes the tab.
+ * Client plugin body: publish the app-lifetime context handle, register the
+ * dictionaries, and mount the tab type. Every registration rides an effect
+ * wrapper, so plugin unload removes the type and its body.
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-tasks: dictionaries')
+  appRef.current = ctx
   const t = ctx.locale.bind(NS)
-  ctx.slots.inject('conversation.view', () => ctx.slots.register({
-    name: 'conversation.view',
-    id: 'tasks',
-    order: 15,
-    locale: NS,
-    label: () => t('view.tasks'),
-    inject: (sessionId: SessionId): TasksViewInjected => {
-      const session = ctx.sessions.binding(sessionId)?.session
-      if (session === undefined) {
-        throw new Error(`ui-tasks: session "${sessionId}" is unavailable`)
-      }
-      return {
-        todos: session.projections.faceOf('todos') as ObservableSnapshot<TaskItemView[] | null>,
-        send: (text: string) => session.prompt([{ type: 'text', text }], 'queue')
-          .then((result: RpcResult<{ accepted: true }>) => { if (!result.ok) throw new Error(result.error.message) }),
-      }
-    },
-  }, TasksView))
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-tasks: dictionaries')
+  ctx.effect(() => ctx.sidebarRightTabs.register(tasksDefinition(t)), 'ui-tasks: tab type')
+  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
+    { name: 'sidebar.right.pane.tab', key: TASKS_ID, locale: NS },
+    TasksTabBody,
+  )), 'ui-tasks: tab body')
 }

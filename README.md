@@ -9,10 +9,10 @@ DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless r
 |----|------|------|
 | `packages/lavs-host` | host 插件 | 按**会话工作目录**发现 `.lavs/bundles/` 下的 lavs.json bundle、同源 serve `/lavs-view/<bundle>/…`、`/lavs` Connection RPC（list/call → lavs-runtime ScriptExecutor）、loopback CLI 端点（`~/.dsh/lavs-host.json` 发现文件）；`lavs_*` agent tools 为 **opt-in**（`registerAgentTools: true`），默认关闭 |
 | `packages/ui-lavs` | client 插件 | **原生右侧栏 tab**（`ctx.sidebarRightTabs` 两段式注册，`keepMounted`）：iframe 装载 LAVS bundle，postMessage 桥接 RPC；视图严格跟随会话工作目录——项目没有 bundle 就显示空态引导 |
-| `packages/ui-tasks` | client 插件 | **[待移植，不随 bundle 发布]** conversation.view 里的 "Tasks" tab：todo 投影一等视图。写就于 fork（0.1.0-rc.5）时代的 `ctx.sessions.binding()` API，0.1.7-rc.2 上不存在，需按 `SessionStore.get` + client 源注册表重写 |
+| `packages/ui-tasks` | client 插件 | **原生右侧栏 tab**（与 ui-lavs 同款两段式注册，`keepMounted`）：`todos` 投影一等任务视图——`useProjection('todos')` 读、每次点击/提交都作为普通排队用户消息发给 agent（全程可审计可回放） |
 | `packages/headless-resume` | host 插件 | **[已废弃]** headless one-shot runner 变体：`--resume <session-id>` / `--print-session-id`——上游 ≥ 0.1.6-alpha.1 原生 `--session-id`(adopt)+ `--json` 已取代,仅留档给 0.1.0-rc.x 旧版 |
 | `packages/lavs-cli` | CLI | `lavs list / schema / call` 三动词，零依赖薄客户端，经宿主 loopback 端点读写——**MCP 工具的上下文经济替代**（CLI + Skill 按场景加载，替代 N×M 常驻工具 schema） |
-| `bundles/lavs` | bundle | 插入 lavs-host / ui-lavs，并携带 CLI 进 profile `node_modules/.bin/lavs` |
+| `bundles/lavs` | bundle | 插入 lavs-host / ui-lavs / ui-tasks，并携带 CLI 进 profile `node_modules/.bin/lavs` |
 | `bundles/headless-resume` | bundle | **[已废弃]** disable 原生 `headless-startup`/`headless-runner`，插入我们的变体——同上,仅留档 |
 | `skills/lavs` | skill | Agent 场景知识：三动词工作流；装到 `~/.dsh/skills/lavs/`（dsh 原生 skill 发现路径） |
 
@@ -73,7 +73,12 @@ pnpm --filter dsh-plugin-lavs-host pack   # 等三个插件 + bundle
   `brandString<SessionId>(...)`、headless summary 改 `session.eventAt(SessionSeq)`、
   **`ctx.sessions` 语义变化**：rc.2 的 `SessionStore`（dsh-session 提供）只有
   `get/list/create` 等方法，master 时代的 `list` observable 与 `binding()` 不存在——
-  ui-tasks 即卡在这。
+  client 侧真正的会话对象层是 `@deepseek-ai/dsh-api-session-controller/client`
+  声明的 `ISessions`（同名为 `ctx.sessions`，同一程序两种声明只能取其一）；
+  ui-tasks 移植即走 ISessions `binding(id).session.prompt(queue)` + 槽位标准
+  props `useProjection('todos')`（投影值由宿主算好推送，浏览器无需自折）。
+  坑：`SessionProjectionMap` 的 `todos` 键合并目标是 `@deepseek-ai/dsh-session-projection`
+  包——消费者 devDeps 不装它，`useProjection('todos')` 会静默退化成 any。
 
 ## 发布
 

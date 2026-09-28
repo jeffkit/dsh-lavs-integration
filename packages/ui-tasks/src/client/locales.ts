@@ -3,6 +3,8 @@
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
   'view.tasks': '任务',
+  'guide.title': '任务视图',
+  'guide.description': '当前会话的 todo 清单：点按切换状态、输入追加新任务，每次操作都作为会话消息发给 agent。',
   'empty.title': '本会话还没有任务清单',
   'empty.hint': '让 agent 用 todo 工具创建清单后，这里会变成可操作的任务视图。',
   'empty.create': '创建任务',
@@ -34,6 +36,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
   'view.tasks': 'Tasks',
+  'guide.title': 'Tasks view',
+  'guide.description': "The session's todo list: toggle items and add new ones — every action is sent to the agent as a session message.",
   'empty.title': 'No task list in this session yet',
   'empty.hint': 'Ask the agent to create one with the todo tool; this becomes an actionable view.',
   'empty.create': 'Create a task',
