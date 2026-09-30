@@ -2,3 +2,5 @@ packages:
   - packages/*
   - bundles/*
 autoInstallPeers: false
+minimumReleaseAgeExclude:
+  - tunely@0.4.0

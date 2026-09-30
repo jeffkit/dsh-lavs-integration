@@ -1,0 +1,19 @@
+{
+  "name": "dsh-bundle-tunely",
+  "description": "dsh bundle: mounts the in-process tunely public-tunnel adapter (per-tunnel config or TUNELY_TOKEN / TUNELY_TUNNELS env; default target is the local dsh web server)",
+  "version": "0.1.0",
+  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dsh-plugin-tunely-host": "workspace:^"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffkit/dsh-lavs-integration.git"
+  }
+}

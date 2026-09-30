@@ -1,0 +1,8 @@
+# The tunely bundle: the in-process public-tunnel adapter. Zero required config —
+# with nothing set it reads TUNELY_TOKEN / TUNELY_SERVER / TUNELY_TARGET (single
+# tunnel) or TUNELY_TUNNELS (multi-tunnel JSON); when targetUrl is absent the
+# tunnel forwards to the local dsh web server (ctx.webServer.port).
+
+- insert:
+    - id: tunely-host
+      name: dsh-plugin-tunely-host

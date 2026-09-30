@@ -7,7 +7,7 @@
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/lavs-host packages/ui-lavs packages/ui-tasks"
+    "typecheck": "tsc -b packages/lavs-host packages/ui-lavs packages/ui-tasks packages/tunely-host"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",

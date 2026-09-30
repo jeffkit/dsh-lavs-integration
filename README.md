@@ -11,8 +11,10 @@ DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless r
 | `packages/ui-lavs` | client 插件 | **原生右侧栏 tab**（`ctx.sidebarRightTabs` 两段式注册，`keepMounted`）：iframe 装载 LAVS bundle，postMessage 桥接 RPC；视图严格跟随会话工作目录——项目没有 bundle 就显示空态引导 |
 | `packages/ui-tasks` | client 插件 | **原生右侧栏 tab**（与 ui-lavs 同款两段式注册，`keepMounted`）：`todos` 投影一等任务视图——`useProjection('todos')` 读、每次点击/提交都作为普通排队用户消息发给 agent（全程可审计可回放） |
 | `packages/headless-resume` | host 插件 | **[已废弃]** headless one-shot runner 变体：`--resume <session-id>` / `--print-session-id`——上游 ≥ 0.1.6-alpha.1 原生 `--session-id`(adopt)+ `--json` 已取代,仅留档给 0.1.0-rc.x 旧版 |
+| `packages/tunely-host` | host 插件 | **进程内公网隧道**（`ctx.tunely`）：跑 tunely（npm）的 `TunnelClient`——不 spawn `tunely connect` 子进程、不写状态文件；单进程 N 条隧道（`config.tunnels` / `TUNELY_TUNNELS`），targetUrl 缺省指向本机 dsh web；生命周期跟随宿主 fiber（dispose 统一 stop，profile HMR 自动重建） |
 | `packages/lavs-cli` | CLI | `lavs list / schema / call` 三动词，零依赖薄客户端，经宿主 loopback 端点读写——**MCP 工具的上下文经济替代**（CLI + Skill 按场景加载，替代 N×M 常驻工具 schema） |
 | `bundles/lavs` | bundle | 插入 lavs-host / ui-lavs / ui-tasks，并携带 CLI 进 profile `node_modules/.bin/lavs` |
+| `bundles/tunely` | bundle | 插入 tunely-host——把内网 dsh 控制台经 tunely 公网域名暴露（`dsh plugin --profile <p> add dsh-bundle-tunely` + `TUNELY_TOKEN=…` 即可） |
 | `bundles/headless-resume` | bundle | **[已废弃]** disable 原生 `headless-startup`/`headless-runner`，插入我们的变体——同上,仅留档 |
 | `skills/lavs` | skill | Agent 场景知识：三动词工作流；装到 `~/.dsh/skills/lavs/`（dsh 原生 skill 发现路径） |
 
@@ -50,6 +52,30 @@ pnpm --filter dsh-plugin-lavs-host pack   # 等三个插件 + bundle
 # 然后按「渠道一」安装 tarball；跨包改动用 profile package.json 的
 # pnpm.overrides 把包名指向本地 tarball（见 git 历史里的 e2e 配方）
 ```
+
+## tunely-host：把内网 dsh 经公网隧道暴露
+
+进程内跑 tunely 客户端（复用 npm `tunely` SDK 的认证/心跳/退避/抢占语义），
+**不 spawn `tunely connect` 子进程、不写状态文件**；targetUrl 缺省即本机 dsh web
+（`ctx.webServer.port`），生命周期跟随宿主 fiber。
+
+```sh
+# 装 bundle（会带上 tunely-host），再设 token 启动——三行完成公网暴露：
+dsh plugin --profile my add dsh-bundle-tunely
+dsh plugin --profile my add @deepseek-ai/dsh-web-app@<你的 dsh 版本>
+TUNELY_TOKEN=tun_xxx dsh --profile my --port 3098 --no-open
+# 服务端 ws 与 target 有 env 缺省（TUNELY_SERVER / TUNELY_TARGET），也可在
+# profile 的 cordis.patch.yml 或插件 config.tunnels 里按条显式配置（支持 N 条）：
+#   tunnels:
+#     - name: dsh
+#       serverUrl: wss://tunely.example.com/ws/tunnel
+#       token: tun_xxx
+#       targetUrl: http://127.0.0.1:3098   # 缺省即本机 web，可省
+#       force: false
+```
+
+运行面：`ctx.tunely.list()/stop(name)/start(name)`（host 侧服务）；连接/断开/错误
+走 `ctx.logger`，日志前缀 `tunely-host: [<name>]`。
 
 ## 与上游 dsh 的版本关系
 
