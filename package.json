@@ -2,7 +2,7 @@
   "name": "dsh-lavs-integration",
   "private": true,
   "version": "0.1.0",
-  "description": "Out-of-tree DeepSeek Harness plugins: LAVS host adapter, Views tab, Tasks tab, headless-resume runner",
+  "description": "Out-of-tree DeepSeek Harness 插件集：经官方 profile+bundle 仓外挂载 LAVS 集成（lavs-host / ui-lavs / ui-tasks / lavs-cli / tunely-host + dsh-bundle-lavs；另含 dsh-bundle-tunely 公网隧道 bundle）；headless-resume runner 已退役（留档 packages/headless-resume/）",
   "type": "module",
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
