@@ -4,3 +4,4 @@ packages:
 autoInstallPeers: false
 minimumReleaseAgeExclude:
   - tunely@0.4.0
+  - tunely@0.5.0
