@@ -10,6 +10,8 @@
  * 「明确表态」，不再回落 env。
  */
 
+import { proxyFromEnv, validateProxy } from 'tunely'
+
 export interface TunnelEntryConfig {
   /** 会话标签；缺省自动编号 tunnel-1/2/…（须唯一，重复者跳过并告警） */
   name?: string
@@ -19,6 +21,8 @@ export interface TunnelEntryConfig {
   token?: string
   /** 转发目标；env TUNELY_TARGET；都缺省 = 本机 dsh web（webServer.port） */
   targetUrl?: string
+  /** 出站 HTTP 代理（建 WS 连接用）；env 回退 proxyFromEnv（HTTPS_PROXY > https_proxy > ALL_PROXY > all_proxy，与 tunely 同序）；非法值该条跳过 */
+  proxy?: string
   /** 总是抢占已有连接 */
   force?: boolean
   /** 重连基础间隔（ms），默认 5000 */
@@ -45,6 +49,8 @@ export interface TunnelSpec {
   serverUrl: string
   token: string
   targetUrl: string
+  /** 出站代理；undefined = 直连（已过 validateProxy） */
+  proxy?: string
   force: boolean
   reconnectInterval: number
   maxReconnectAttempts: number
@@ -102,12 +108,27 @@ export function resolveTunnels(
       continue
     }
 
+    const proxy = entry.proxy ?? proxyFromEnv(env) ?? undefined
+    if (proxy !== undefined) {
+      // 在 resolve 层拦下：构造期才炸会波及同进程其他隧道（start 无 per-tunnel 隔离）
+      try {
+        validateProxy(proxy)
+      } catch (e) {
+        skipped.push({
+          name,
+          reason: `invalid proxy "${proxy}"（${e instanceof Error ? e.message : String(e)}）`,
+        })
+        continue
+      }
+    }
+
     seen.add(name)
     tunnels.push({
       name,
       serverUrl,
       token,
       targetUrl,
+      proxy,
       force: entry.force ?? TUNNEL_DEFAULTS.force,
       reconnectInterval: num(entry.reconnectInterval, TUNNEL_DEFAULTS.reconnectInterval),
       maxReconnectAttempts: num(entry.maxReconnectAttempts, TUNNEL_DEFAULTS.maxReconnectAttempts),

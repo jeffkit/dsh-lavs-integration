@@ -32,6 +32,38 @@ describe('resolveTunnels — config > env > 默认', () => {
     })
   })
 
+  it('proxy：config 字段 > 代理 env 回退（HTTPS_PROXY 等，与 tunely 同序），非法值该条跳过', () => {
+    const viaConfig = resolveTunnels(
+      { tunnels: [{ name: 'a', serverUrl: 'ws://s', token: 't', proxy: 'http://cfg:1' }] },
+      { HTTPS_PROXY: 'http://env:2' },
+      PORT,
+    )
+    expect(viaConfig.tunnels[0]?.proxy).toBe('http://cfg:1')
+
+    const viaEnv = resolveTunnels(
+      { tunnels: [{ name: 'a', serverUrl: 'ws://s', token: 't' }] },
+      { HTTPS_PROXY: 'http://env:2', ALL_PROXY: 'http://all:3' },
+      PORT,
+    )
+    expect(viaEnv.tunnels[0]?.proxy).toBe('http://env:2')
+
+    const direct = resolveTunnels(
+      { tunnels: [{ name: 'a', serverUrl: 'ws://s', token: 't' }] },
+      {},
+      PORT,
+    )
+    expect(direct.tunnels[0]?.proxy).toBeUndefined()
+
+    const bad = resolveTunnels(
+      { tunnels: [{ name: 'a', serverUrl: 'ws://s', token: 't', proxy: 'socks5://127.0.0.1:1080' }] },
+      {},
+      PORT,
+    )
+    expect(bad.tunnels).toHaveLength(0)
+    expect(bad.skipped[0]).toMatchObject({ name: 'a' })
+    expect(bad.skipped[0]?.reason).toContain('proxy')
+  })
+
   it('targetUrl 缺省 = 本机 dsh web（webServer.port）', () => {
     const { tunnels } = resolveTunnels(
       { tunnels: [{ name: 'a', serverUrl: 'ws://s', token: 't' }] },

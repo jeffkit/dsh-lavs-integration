@@ -44,7 +44,9 @@ export const Config: z<Config> = z.object({
       serverUrl: z.string(),
       token: z.string(),
       targetUrl: z.string(),
-      proxy: z.string().optional(),
+      // 仓内可选字段的惯用写法：fork 的 Schema 类型面无 optional() 实例方法，
+      // 默认 'plain' 模式即非必填（同 name/serverUrl 等）
+      proxy: z.string(),
       force: z.boolean(),
       reconnectInterval: z.number(),
       maxReconnectAttempts: z.number(),
