@@ -15,6 +15,9 @@ DeepSeek Harness（DSH）的**仓外插件集**：LAVS 视图集成 + headless r
 | `packages/lavs-cli` | CLI | `lavs list / schema / call` 三动词，零依赖薄客户端，经宿主 loopback 端点读写——**MCP 工具的上下文经济替代**（CLI + Skill 按场景加载，替代 N×M 常驻工具 schema） |
 | `bundles/lavs` | bundle | 插入 lavs-host / ui-lavs / ui-tasks，并携带 CLI 进 profile `node_modules/.bin/lavs` |
 | `bundles/tunely` | bundle | 插入 tunely-host——把内网 dsh 控制台经 tunely 公网域名暴露（`dsh plugin --profile <p> add dsh-bundle-tunely` + `TUNELY_TOKEN=…` 即可） |
+| `packages/mobile-gateway` | host 插件 | **手机版门面**：同源 REST/SSE（`/api/mobile`）直调 `ctx.sessionController`（owner 直连，吃宿主 cookie 鉴权 + Host/Origin 围栏），SSE 桥接 follow 流（snapshot/持久事件/assistant-stream token 增量 + 15s 心跳防隧道空闲断）；`config.staticDir` 配置后在 `/m` 同源托管手机 UI 构建产物 |
+| `packages/mobile-ui` | 移动 Web UI | DSH 手机版前端（Vite + React 18）：会话列表/抽屉、流式回复（思考折叠 + markdown/代码高亮/KaTeX，markdown 套件自 deepseek-ai/chat-demo MIT 移植）、token 用量、发送/停止状态机；构建产物经 mobile-gateway 的 `/m` 托管，`base: /m/` |
+| `bundles/mobile` | bundle | 插入 mobile-gateway（`config.staticDir` 指向 mobile-ui `dist/` 时 UI 生效） |
 | `bundles/headless-resume` | bundle | **[已废弃]** disable 原生 `headless-startup`/`headless-runner`，插入我们的变体——同上,仅留档 |
 | `skills/lavs` | skill | Agent 场景知识：三动词工作流；装到 `~/.dsh/skills/lavs/`（dsh 原生 skill 发现路径） |
 

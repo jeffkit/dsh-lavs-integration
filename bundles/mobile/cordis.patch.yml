@@ -1,0 +1,8 @@
+# The mobile bundle: same-origin REST/SSE facade for the DSH mobile UI.
+# Zero required config — with staticDir unset only /api/mobile is mounted;
+# set `config.staticDir` (profile cordis.patch.yml override) to serve the
+# built UI under /m.
+
+- insert:
+    - id: mobile-gateway
+      name: dsh-plugin-mobile-gateway

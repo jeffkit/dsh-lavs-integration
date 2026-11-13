@@ -1,0 +1,35 @@
+{
+  "name": "dsh-plugin-mobile-gateway",
+  "description": "Mobile gateway for DeepSeek Harness: same-origin REST/SSE facade over ctx.sessionController (sessions list/create/prompt/cancel, event history, live turn stream) plus static hosting for the mobile UI under /m",
+  "version": "0.1.1",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-connection": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.7-rc.2",
+    "@deepseek-ai/schemastery": "*"
+  },
+  "devDependencies": {
+    "tsdown": "^0.12.9",
+    "typescript": "^5.9.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffkit/dsh-lavs-integration.git"
+  },
+  "files": [
+    "lib",
+    "dist"
+  ]
+}

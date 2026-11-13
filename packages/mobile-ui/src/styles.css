@@ -1,0 +1,466 @@
+/* DSH Mobile — 移动优先；深浅色跟随系统。 */
+
+:root {
+  --bg: #f6f7f9;
+  --bg-elev: #ffffff;
+  --bg-user: #2f6f4f;
+  --text: #1a1d21;
+  --text-dim: #6b7280;
+  --border: #e3e6ea;
+  --accent: #2f6f4f;
+  --danger: #b3261e;
+  --radius: 14px;
+  --topbar-h: 52px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-user: #275e44;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --border: #262d36;
+    --accent: #3fa075;
+    --danger: #f85149;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, 'SF Pro Text', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100%;
+}
+
+.boot,
+.login-screen {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(86vw, 360px);
+  padding: 24px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.login-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.login-card input {
+  height: 44px;
+  padding: 0 12px;
+  font-size: 16px; /* 防 iOS 聚焦缩放 */
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.login-card button {
+  height: 44px;
+  font-size: 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.login-card button:disabled {
+  opacity: 0.5;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+/* ---------- 应用骨架 ---------- */
+
+.app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+.topbar {
+  height: var(--topbar-h);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 20px;
+  border-radius: 10px;
+}
+
+.icon-button:active {
+  background: var(--border);
+}
+
+.error-banner {
+  flex: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  word-break: break-all;
+}
+
+/* ---------- 消息区 ---------- */
+
+.chat-area {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.scroller {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.empty-hint {
+  margin: auto;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.bubble {
+  max-width: 88%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--bg-user);
+  color: #fff;
+  white-space: pre-wrap;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  width: 100%;
+  max-width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+}
+
+.usage {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.thinking {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-dim) 8%, transparent);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.thinking.live-collapsed {
+  opacity: 0.85;
+}
+
+.thinking-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.thinking-caret {
+  font-size: 11px;
+}
+
+.thinking-body {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0 10px 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.tool-chip {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.tool-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.tool-chip.done .tool-dot {
+  background: var(--accent);
+}
+
+.status-line {
+  align-self: center;
+  font-size: 12px;
+  color: var(--danger);
+  padding: 4px 10px;
+}
+
+.jump-bottom {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
+}
+
+/* 生成中的三点动画 */
+
+.dot-pulse {
+  align-self: flex-start;
+  display: flex;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.dot-pulse i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.dot-pulse i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot-pulse i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* ---------- 输入区 ---------- */
+
+.composer {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+}
+
+.composer textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 10px 14px;
+  font-size: 16px; /* 防 iOS 聚焦缩放 */
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  max-height: 132px;
+}
+
+.send-button {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 17px;
+}
+
+.send-button:disabled {
+  opacity: 0.4;
+}
+
+.send-button.stop {
+  background: var(--danger);
+}
+
+/* ---------- 会话抽屉 ---------- */
+
+.drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 40%);
+  z-index: 20;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(80vw, 320px);
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-h);
+  padding: 0 10px;
+  font-weight: 600;
+}
+
+.new-session {
+  margin: 6px 10px;
+  height: 42px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+}
+
+.session-item {
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 10px 12px;
+  margin: 4px 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.session-item.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.session-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-running {
+  font-size: 11px;
+  color: var(--accent);
+  margin-left: 6px;
+}
+
+.session-time {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}

@@ -1,3 +1,4 @@
 node_modules/
 lib/
 *.tsbuildinfo
+packages/mobile-ui/dist/
