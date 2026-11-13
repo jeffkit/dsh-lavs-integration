@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-mobile-gateway",
   "description": "Mobile gateway for DeepSeek Harness: same-origin REST/SSE facade over ctx.sessionController (sessions list/create/prompt/cancel, event history, live turn stream) plus static hosting for the mobile UI under /m",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

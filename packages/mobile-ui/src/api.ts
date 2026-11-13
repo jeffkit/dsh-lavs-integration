@@ -1,5 +1,6 @@
 /** 门面客户端：所有请求同源，鉴权靠登录后的 cookie（/?token= 换发）。 */
 
+import { blobToWav } from './audio.js'
 import type { EventsPage, FollowFrame, SessionSummary } from './types.js'
 
 export class ApiError extends Error {
@@ -61,6 +62,38 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ text, requestId }),
     })
+  },
+
+  /** 发送带内联图片的内容部件（text/image），parts 至少一项 */
+  promptParts(
+    sessionId: string,
+    parts: Array<{ type: 'text'; text: string } | { type: 'image'; mediaType: string; data: string; name?: string }>,
+    requestId?: string,
+  ): Promise<{ accepted: boolean }> {
+    return request(`/api/mobile/sessions/${encodeURIComponent(sessionId)}/prompt`, {
+      method: 'POST',
+      body: JSON.stringify({ parts, requestId }),
+    })
+  },
+
+  /** 语音识别：录音 blob（任意浏览器格式）→ 服务端转发 DeepSeek ASR → 文本 */
+  async transcribe(audio: Blob): Promise<string> {
+    const wav = await blobToWav(audio)
+    const form = new FormData()
+    form.append('file', wav, 'recording.wav')
+    const response = await fetch('/api/mobile/asr', { method: 'POST', body: form })
+    if (!response.ok) {
+      let message = response.statusText
+      try {
+        const body = (await response.json()) as { error?: string }
+        if (body.error !== undefined) message = body.error
+      } catch {
+        // 保留 statusText
+      }
+      throw new ApiError(response.status, message)
+    }
+    const body = (await response.json()) as { text?: string }
+    return body.text ?? ''
   },
 
   cancel(sessionId: string): Promise<{ accepted: boolean }> {

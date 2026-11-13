@@ -326,6 +326,33 @@ export function App() {
     [activeId, newSession, refreshSessions],
   )
 
+  const sendParts = useCallback(
+    async (parts: Array<{ type: 'text'; text: string } | { type: 'image'; mediaType: string; data: string; name?: string }>) => {
+      if (activeId === undefined) {
+        await newSession()
+        return
+      }
+      try {
+        setError(undefined)
+        await api.promptParts(activeId, parts)
+        setRunning(true)
+        void refreshSessions()
+      } catch (err) {
+        setError(String(err))
+      }
+    },
+    [activeId, newSession, refreshSessions],
+  )
+
+  const transcribe = useCallback(async (audio: Blob): Promise<string> => {
+    try {
+      return await api.transcribe(audio)
+    } catch (err) {
+      setError(`语音识别失败：${String(err)}`)
+      return ''
+    }
+  }, [])
+
   const stop = useCallback(async () => {
     if (activeId === undefined) return
     try {
@@ -392,7 +419,14 @@ export function App() {
       </header>
       {error !== undefined && <div className="error-banner">{error}</div>}
       <ChatView items={items} running={running} />
-      <Composer disabled={false} running={running} onSend={(text) => void send(text)} onStop={() => void stop()} />
+      <Composer
+        disabled={false}
+        running={running}
+        onSend={(text) => void send(text)}
+        onSendParts={(parts) => void sendParts(parts)}
+        onTranscribe={transcribe}
+        onStop={() => void stop()}
+      />
       {drawer}
     </div>
   )

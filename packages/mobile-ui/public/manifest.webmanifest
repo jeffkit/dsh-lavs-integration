@@ -1,0 +1,25 @@
+{
+  "name": "DSH Mobile",
+  "short_name": "DSH",
+  "description": "DeepSeek Harness 手机端：会话、流式回复、语音输入、图片上传",
+  "start_url": "/m/",
+  "scope": "/m/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "/m/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/m/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

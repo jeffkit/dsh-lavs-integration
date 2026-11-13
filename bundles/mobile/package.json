@@ -1,7 +1,7 @@
 {
   "name": "dsh-bundle-mobile",
   "description": "dsh bundle: mounts the mobile-gateway facade (same-origin REST/SSE over ctx.sessionController at /api/mobile + static mobile UI under /m when staticDir is configured)",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "type": "module",
   "dsh": {
     "bundle": {

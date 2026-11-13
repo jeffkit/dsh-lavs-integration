@@ -13,7 +13,20 @@ const UserBubble = memo(function UserBubble({ parts }: { parts: ContentPart[] })
     .filter((part) => part.type === 'text')
     .map((part) => part.text ?? '')
     .join('\n')
-  return <div className="bubble user">{text}</div>
+  const images = parts.filter((part) => part.type === 'image')
+  return (
+    <div className="bubble user">
+      {images.map((part, index) => (
+        <img
+          key={index}
+          className="user-image"
+          src={`data:${part.mediaType as string};base64,${part.data as string}`}
+          alt={(part.name as string | undefined) ?? '附件'}
+        />
+      ))}
+      {text !== '' && <div className="user-text">{text}</div>}
+    </div>
+  )
 })
 
 const ThinkingBlock = memo(function ThinkingBlock({ text, live }: { text: string; live?: boolean }) {

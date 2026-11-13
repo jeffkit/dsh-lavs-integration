@@ -17,6 +17,7 @@
  */
 
 import { createReadStream, stat } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { extname, join, normalize, sep } from 'node:path'
@@ -43,6 +44,12 @@ export interface Config {
   staticDir?: string
   /** Default working directory for sessions created without an explicit cwd. */
   defaultCwd?: string
+  /** DeepSeek ASR base URL（语音识别代理目标）. */
+  asrBaseURL?: string
+  /** Literal ASR API key；优先于 env/credentials 查找。 */
+  asrApiKey?: string
+  /** 存放 ASR API key 的环境变量名（回退 ~/.dsh/.credentials.yaml 同名键）. */
+  asrApiKeyEnv?: string
 }
 
 // 仓内可选字段的惯用写法：fork 的 Schema 类型面无 optional() 实例方法，
@@ -50,6 +57,9 @@ export interface Config {
 export const Config: z<Config> = z.object({
   staticDir: z.string(),
   defaultCwd: z.string(),
+  asrBaseURL: z.string(),
+  asrApiKey: z.string(),
+  asrApiKeyEnv: z.string(),
 })
 
 // ---------------------------------------------------------------------------
@@ -127,6 +137,7 @@ function neverAbort(): AbortController {
 // ---------------------------------------------------------------------------
 
 const MAX_BODY_BYTES = 1_048_576
+const MAX_AUDIO_BYTES = 9 * 1_048_576
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolveBody, rejectBody) => {
@@ -142,6 +153,24 @@ function readBody(req: IncomingMessage): Promise<string> {
       chunks.push(chunk)
     })
     req.on('end', () => resolveBody(Buffer.concat(chunks).toString('utf8')))
+    req.on('error', rejectBody)
+  })
+}
+
+function readRawBody(req: IncomingMessage, limit: number): Promise<Buffer> {
+  return new Promise((resolveBody, rejectBody) => {
+    let size = 0
+    const chunks: Buffer[] = []
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length
+      if (size > limit) {
+        rejectBody(new Error('body too large'))
+        req.destroy()
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on('end', () => resolveBody(Buffer.concat(chunks)))
     req.on('error', rejectBody)
   })
 }
@@ -229,6 +258,53 @@ function createStaticHandler(staticDir: string) {
 /** Session event types that mark a finished model turn (client relies on this). */
 const TURN_END_EVENT = 'turn/end'
 
+const DEFAULT_ASR_BASE = 'https://api.deepseek.com'
+const CREDENTIALS_PATH = '/Users/kong/.dsh/.credentials.yaml'
+
+/**
+ * ASR key 查找顺序：字面量 config → 环境变量（asrApiKeyEnv，缺省 DEEPSEEK_API_KEY）
+ * → ~/.dsh/.credentials.yaml 同名键（实例凭据仓，平铺 YAML 行匹配）。
+ */
+async function resolveAsrKey(config: Config): Promise<string | undefined> {
+  if (config.asrApiKey !== undefined && config.asrApiKey !== '') return config.asrApiKey
+  const envName = config.asrApiKeyEnv !== undefined && config.asrApiKeyEnv !== '' ? config.asrApiKeyEnv : 'DEEPSEEK_API_KEY'
+  const fromEnv = process.env[envName]
+  if (fromEnv !== undefined && fromEnv !== '') return fromEnv
+  try {
+    const yaml = await readFile(CREDENTIALS_PATH, 'utf8')
+    for (const line of yaml.split('\n')) {
+      const match = new RegExp(`^\\s*${envName}:\\s*["']?([^"']\\S*?)["']?\\s*$`).exec(line)
+      if (match !== null) return match[1]
+    }
+  } catch {
+    // credentials 文件不存在则跳过
+  }
+  return undefined
+}
+
+/** 语音识别：multipart 原样转发 DeepSeek /v1/tools/asr（WAV 16k 单声道 PCM16 / Ogg Opus，≤120s ≤8MiB）。 */
+async function handleAsr(req: IncomingMessage, res: ServerResponse, config: Config): Promise<void> {
+  const key = await resolveAsrKey(config)
+  if (key === undefined) {
+    respondJson(res, 503, { error: `ASR key missing: set ${config.asrApiKeyEnv ?? 'DEEPSEEK_API_KEY'} env or asrApiKey config` })
+    return
+  }
+  const audio = await readRawBody(req, MAX_AUDIO_BYTES)
+  const base = config.asrBaseURL !== undefined && config.asrBaseURL !== '' ? config.asrBaseURL : DEFAULT_ASR_BASE
+  const upstream = await fetch(`${base}/v1/tools/asr`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${key}`,
+      'content-type': req.headers['content-type'] ?? 'application/octet-stream',
+    },
+    body: new Uint8Array(audio),
+  })
+  const text = await upstream.text()
+  res.statusCode = upstream.status
+  res.setHeader('content-type', upstream.headers.get('content-type') ?? 'application/json; charset=utf-8')
+  res.end(text)
+}
+
 /**
  * The pinned devDeps WebRoute type face predates the runtime's `auth` field
  * (webserver 0.2.x); the runtime honors it, so route objects carry `auth` and
@@ -281,6 +357,12 @@ export function apply(ctx: Context, config: Config): void {
               return
             }
 
+            // -- POST /api/mobile/asr（multipart 原样转发 DeepSeek ASR）----
+            if (path === '/api/mobile/asr' && method === 'POST') {
+              await handleAsr(req, res, config)
+              return
+            }
+
             // -- /api/mobile/sessions/:id[/{prompt,cancel,events,stream}] ---
             const match = /^\/api\/mobile\/sessions\/([^/]+)(?:\/(prompt|cancel|events|stream))?$/.exec(path)
             if (match !== null) {
@@ -295,12 +377,29 @@ export function apply(ctx: Context, config: Config): void {
               if (action === 'prompt' && method === 'POST') {
                 const body = JSON.parse((await readBody(req)) || '{}') as {
                   text?: string
+                  parts?: Array<{ type: string; text?: string; mediaType?: string; data?: string; name?: string }>
                   mode?: 'queue' | 'steer'
                   requestId?: string
                 }
-                const text = typeof body.text === 'string' ? body.text : ''
-                if (text.trim() === '') {
-                  respondJson(res, 400, { error: 'text is required' })
+                // content 组装：显式 parts（含内联图片）优先，回退纯 text
+                const content: Array<Record<string, unknown>> = []
+                for (const part of body.parts ?? []) {
+                  if (part.type === 'text' && typeof part.text === 'string' && part.text !== '') {
+                    content.push({ type: 'text', text: part.text })
+                  } else if (part.type === 'image' && typeof part.mediaType === 'string' && typeof part.data === 'string' && part.data !== '') {
+                    content.push({
+                      type: 'image',
+                      mediaType: part.mediaType,
+                      data: part.data,
+                      ...(typeof part.name === 'string' ? { name: part.name } : {}),
+                    })
+                  }
+                }
+                if (content.length === 0 && typeof body.text === 'string' && body.text.trim() !== '') {
+                  content.push({ type: 'text', text: body.text })
+                }
+                if (content.length === 0) {
+                  respondJson(res, 400, { error: 'text or parts is required' })
                   return
                 }
                 const value = await sessions.prompt(
@@ -308,7 +407,7 @@ export function apply(ctx: Context, config: Config): void {
                     requestId: typeof body.requestId === 'string' && body.requestId !== '' ? body.requestId : randomUUID(),
                     sessionId,
                     mode: body.mode === 'steer' ? 'steer' : 'queue',
-                    content: [{ type: 'text', text }],
+                    content: content as Array<{ type: 'text'; text: string }>,
                     clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                   },
                   neverAbort().signal,
